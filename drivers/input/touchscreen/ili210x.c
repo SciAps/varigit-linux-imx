@@ -3,6 +3,8 @@
 #include <linux/delay.h>
 #include <linux/gpio/consumer.h>
 #include <linux/i2c.h>
+#include <linux/pm.h>
+#include <linux/pm_wakeirq.h>
 #include <linux/ihex.h>
 #include <linux/input.h>
 #include <linux/input/mt.h>
@@ -314,6 +316,8 @@ static bool ili210x_report_events(struct ili210x *priv, u8 *touchdata)
 
 		input_mt_slot(input, i);
 		if (input_mt_report_slot_state(input, MT_TOOL_FINGER, touch)) {
+			x = x * priv->prop.max_x / priv->chip->resolution;
+			y = y * priv->prop.max_y / priv->chip->resolution;
 			touchscreen_report_pos(input, &priv->prop, x, y, true);
 			if (priv->chip->has_pressure_reg)
 				input_report_abs(input, ABS_MT_PRESSURE, z);
@@ -924,7 +928,7 @@ static int ili210x_i2c_probe(struct i2c_client *client,
 	int error;
 	unsigned int max_xy;
 
-	dev_dbg(dev, "Probing for ILI210X I2C Touschreen driver");
+	dev_info(dev, "Probing for ILI210X I2C Touschreen driver");
 
 	chip = device_get_match_data(dev);
 	if (!chip && id)
@@ -972,6 +976,7 @@ static int ili210x_i2c_probe(struct i2c_client *client,
 
 	/* Multi touch */
 	max_xy = (chip->resolution ?: SZ_64K) - 1;
+	dev_info(dev, "%s: --->chip->resolution: %d; max_xy: %d;\n", __func__, chip->resolution, max_xy);
 	input_set_abs_params(input, ABS_MT_POSITION_X, 0, max_xy, 0, 0);
 	input_set_abs_params(input, ABS_MT_POSITION_Y, 0, max_xy, 0, 0);
 	if (priv->chip->has_pressure_reg)
@@ -992,12 +997,21 @@ static int ili210x_i2c_probe(struct i2c_client *client,
 	}
 
 	error = devm_request_threaded_irq(dev, client->irq, NULL, ili210x_irq,
-					  IRQF_ONESHOT, client->name, priv);
+					  IRQF_TRIGGER_RISING | IRQF_ONESHOT /*| IRQF_SHARED*/, client->name, priv);
 	if (error) {
 		dev_err(dev, "Unable to request touchscreen IRQ, err: %d\n",
 			error);
 		return error;
 	}
+
+	//device_init_wakeup(dev, true);
+	//error = dev_pm_set_wake_irq(dev, client->irq);
+	//if (error)
+	//	dev_err(dev, "%s: irq wake enable failed.\n", __func__);
+
+	//dev_pm_enable_wake_irq(dev);
+	//enable_irq(client->irq);
+	//enable_irq_wake(client->irq);
 
 	error = devm_add_action_or_reset(dev, ili210x_stop, priv);
 	if (error)
@@ -1018,6 +1032,40 @@ static int ili210x_i2c_probe(struct i2c_client *client,
 
 	return 0;
 }
+
+static int /*__maybe_unused*/ ili210x_i2c_suspend(struct device *dev)
+{
+	struct i2c_client *client = to_i2c_client(dev);
+
+	dev_info(&client->dev, "%s: Enter\n", __func__ );
+
+	if (device_may_wakeup(&client->dev)) {
+		dev_info(&client->dev, "%s: device may wake up!!!\n", __func__ );
+		//enable_irq_wake(client->irq);
+	}
+
+	return 0;
+}
+
+static int /*__maybe_unused*/ ili210x_i2c_resume(struct device *dev)
+{
+	struct i2c_client *client = to_i2c_client(dev);
+
+	dev_info(&client->dev, "%s: Enter\n", __func__ );
+
+	if (device_may_wakeup(&client->dev)) {
+		//dev_info(&client->dev, "%s: disable_irq_wake\n", __func__ );
+		dev_info(&client->dev, "%s: device may wake up!!!\n", __func__ );
+		pm_wakeup_event(dev->parent, 0);
+		// client->dev.power.power_state.event = PM_EVENT_RESUME;
+		//disable_irq_wake(client->irq);
+	}
+
+	return 0;
+}
+
+static DEFINE_SIMPLE_DEV_PM_OPS(ili210x_i2c_pm,
+			 ili210x_i2c_suspend, ili210x_i2c_resume);
 
 static const struct i2c_device_id ili210x_i2c_id[] = {
 	{ "ili210x", (long)&ili210x_chip },
@@ -1040,6 +1088,7 @@ MODULE_DEVICE_TABLE(of, ili210x_dt_ids);
 static struct i2c_driver ili210x_ts_driver = {
 	.driver = {
 		.name = "ili210x_i2c",
+		.pm = &ili210x_i2c_pm,
 		.of_match_table = ili210x_dt_ids,
 	},
 	.id_table = ili210x_i2c_id,

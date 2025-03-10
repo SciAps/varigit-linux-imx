@@ -859,7 +859,7 @@ static int rv3028_probe(struct i2c_client *client)
 {
 	struct rv3028_data *rv3028;
 	int ret, status;
-	u32 ohms;
+	u32 ohms, bsm;
 	struct nvmem_config nvmem_cfg = {
 		.name = "rv3028_nvram",
 		.word_size = 1,
@@ -943,6 +943,29 @@ static int rv3028_probe(struct i2c_client *client)
 		} else {
 			dev_warn(&client->dev, "invalid trickle resistor value\n");
 		}
+	}
+
+	/* automatic backup switchover mode */
+	if (!device_property_read_u32(&client->dev, "backup-switchover-mode",
+				      &bsm)) {
+		u8 mode = 0xff;
+		switch (bsm) {
+			case RTC_BSM_DISABLED:
+				mode = 0;
+				break;
+			case RTC_BSM_DIRECT:
+				mode = RV3028_BACKUP_BSM_DSM;
+				break;
+			case RTC_BSM_LEVEL:
+				mode = RV3028_BACKUP_BSM_LSM;
+				break;
+			default:
+				dev_warn(&client->dev, "invalid automatic backup switchover mode\n");
+		}
+
+		if (mode != 0xff)
+			rv3028_update_cfg(rv3028, RV3028_BACKUP, RV3028_BACKUP_BSM,
+						FIELD_PREP(RV3028_BACKUP_BSM, mode));
 	}
 
 	ret = rtc_add_group(rv3028->rtc, &rv3028_attr_group);

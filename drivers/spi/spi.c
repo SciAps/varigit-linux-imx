@@ -1558,8 +1558,8 @@ fallback_pio:
 		spi_transfer_delay_exec(xfer);
 
 		if (xfer->cs_change) {
-			if (list_is_last(&xfer->transfer_list,
-					 &msg->transfers)) {
+			if (false/*list_is_last(&xfer->transfer_list,  //AAD
+					 &msg->transfers)*/) {
 				keep_cs = true;
 			} else {
 				if (!xfer->cs_off)

@@ -31,8 +31,11 @@
 #include <linux/slab.h>
 #include <linux/types.h>
 #include <media/v4l2-ctrls.h>
+#include <media/v4l2-event.h>
 #include <media/v4l2-fwnode.h>
 #include <media/v4l2-subdev.h>
+
+#define AD_DEV_DBG dev_dbg
 
 #define OV5645_SYSTEM_CTRL0		0x3008
 #define		OV5645_SYSTEM_CTRL0_START	0x02
@@ -61,6 +64,30 @@
 #define OV5645_SDE_SAT_U		0x5583
 #define OV5645_SDE_SAT_V		0x5584
 
+/* min/typical/max system clock (xclk) frequencies */
+#define OV5640_XCLK_MIN  6000000
+#define OV5640_XCLK_MAX 27000000
+
+#define OV5640_NATIVE_WIDTH			2592
+#define OV5640_NATIVE_HEIGHT		1944
+#define OV5640_PIXEL_ARRAY_TOP		14
+#define OV5640_PIXEL_ARRAY_LEFT		16
+#define OV5640_PIXEL_ARRAY_WIDTH	2592
+#define OV5640_PIXEL_ARRAY_HEIGHT	1944
+
+enum ov5645_frame_rate {
+	OV5645_15_FPS = 0,
+	OV5645_30_FPS,
+	OV5645_60_FPS,
+	OV5645_NUM_FRAMERATES,
+};
+
+static const int ov5645_framerates[] = {
+	[OV5645_15_FPS] = 15,
+	[OV5645_30_FPS] = 30,
+	[OV5645_60_FPS] = 60,
+};
+
 /* regulator supplies */
 static const char * const ov5645_supply_name[] = {
 	"vdddo", /* Digital I/O (1.8V) supply */
@@ -82,6 +109,10 @@ struct ov5645_mode_info {
 	u32 data_size;
 	u32 pixel_clock;
 	u32 link_freq;
+
+	/* Used by s_frame_interval only. */
+	u32 max_fps;
+	u32 def_fps;
 };
 
 struct ov5645 {
@@ -97,6 +128,8 @@ struct ov5645 {
 	struct regulator_bulk_data supplies[OV5645_NUM_SUPPLIES];
 
 	const struct ov5645_mode_info *current_mode;
+	enum ov5645_frame_rate current_fr;
+	struct v4l2_fract frame_interval;
 
 	struct v4l2_ctrl_handler ctrls;
 	struct v4l2_ctrl *pixel_clock;
@@ -112,6 +145,9 @@ struct ov5645 {
 
 	struct gpio_desc *enable_gpio;
 	struct gpio_desc *rst_gpio;
+
+	bool pending_mode_change;
+	bool streaming;
 };
 
 static inline struct ov5645 *to_ov5645(struct v4l2_subdev *sd)
@@ -405,6 +441,7 @@ static const struct reg_value ov5645_setting_sxga[] = {
 	{ 0x3a18, 0x00 },
 	{ 0x4004, 0x02 },
 	{ 0x4005, 0x18 },
+	//{ 0x4300, 0x30 },
 	{ 0x4300, 0x32 },
 	{ 0x4202, 0x00 }
 };
@@ -454,6 +491,7 @@ static const struct reg_value ov5645_setting_1080p[] = {
 	{ 0x3a18, 0x00 },
 	{ 0x4004, 0x06 },
 	{ 0x4005, 0x18 },
+	//{ 0x4300, 0x30 },
 	{ 0x4300, 0x32 },
 	{ 0x4202, 0x00 },
 	{ 0x4837, 0x0b }
@@ -504,6 +542,7 @@ static const struct reg_value ov5645_setting_full[] = {
 	{ 0x3a18, 0x01 },
 	{ 0x4004, 0x06 },
 	{ 0x4005, 0x18 },
+	//{ 0x4300, 0x30 },
 	{ 0x4300, 0x32 },
 	{ 0x4837, 0x0b },
 	{ 0x4202, 0x00 }
@@ -511,7 +550,8 @@ static const struct reg_value ov5645_setting_full[] = {
 
 static const s64 link_freq[] = {
 	224000000,
-	336000000
+	336000000,
+	240000000
 };
 
 static const struct ov5645_mode_info ov5645_mode_info_data[] = {
@@ -520,24 +560,30 @@ static const struct ov5645_mode_info ov5645_mode_info_data[] = {
 		.height = 960,
 		.data = ov5645_setting_sxga,
 		.data_size = ARRAY_SIZE(ov5645_setting_sxga),
-		.pixel_clock = 112000000,
-		.link_freq = 0 /* an index in link_freq[] */
+		.pixel_clock = 12000000, //112000000,
+		.link_freq = 2,//0, /* an index in link_freq[] */
+		.max_fps	= OV5645_30_FPS,
+		.def_fps	= OV5645_30_FPS
 	},
 	{
 		.width = 1920,
 		.height = 1080,
 		.data = ov5645_setting_1080p,
 		.data_size = ARRAY_SIZE(ov5645_setting_1080p),
-		.pixel_clock = 168000000,
-		.link_freq = 1 /* an index in link_freq[] */
+		.pixel_clock = 12000000,//168000000,
+		.link_freq = 2, //1, /* an index in link_freq[] */
+		.max_fps	= OV5645_30_FPS,
+		.def_fps	= OV5645_30_FPS
 	},
 	{
 		.width = 2592,
 		.height = 1944,
 		.data = ov5645_setting_full,
 		.data_size = ARRAY_SIZE(ov5645_setting_full),
-		.pixel_clock = 168000000,
-		.link_freq = 1 /* an index in link_freq[] */
+		.pixel_clock = 12000000,//168000000,
+		.link_freq = 2,//1, /* an index in link_freq[] */
+		.max_fps	= OV5645_30_FPS,
+		.def_fps	= OV5645_30_FPS
 	},
 };
 
@@ -788,6 +834,36 @@ static int ov5645_set_awb(struct ov5645 *ov5645, s32 enable_auto)
 	return ov5645_write_reg(ov5645, OV5645_AWB_MANUAL_CONTROL, val);
 }
 
+static int ov5645_g_volatile_ctrl(struct v4l2_ctrl *ctrl)
+{
+	struct ov5645 *ov5645 = container_of(ctrl->handler,
+					     struct ov5645, ctrls);
+	//struct v4l2_subdev *sd = ctrl_to_sd(ctrl);
+	//struct ov5640_dev *sensor = to_ov5640_dev(sd);
+	//int val;
+
+	/* v4l2_ctrl_lock() locks our own mutex */
+
+	switch (ctrl->id) {
+	case V4L2_CID_AUTOGAIN:
+		dev_err(ov5645->dev, "%s: V4L2_CID_AUTOGAIN\n", __func__);
+		//val = ov5640_get_gain(sensor);
+		//if (val < 0)
+		//	return val;
+		//sensor->ctrls.gain->val = val;
+		break;
+	case V4L2_CID_EXPOSURE_AUTO:
+		dev_err(ov5645->dev, "%s: V4L2_CID_EXPOSURE_AUTO\n", __func__);
+		//val = ov5640_get_exposure(sensor);
+		//if (val < 0)
+		//	return val;
+		//sensor->ctrls.exposure->val = val;
+		break;
+	}
+
+	return 0;
+}
+
 static int ov5645_s_ctrl(struct v4l2_ctrl *ctrl)
 {
 	struct ov5645 *ov5645 = container_of(ctrl->handler,
@@ -800,6 +876,8 @@ static int ov5645_s_ctrl(struct v4l2_ctrl *ctrl)
 		return 0;
 	}
 
+	AD_DEV_DBG(ov5645->dev, "%s: ctrl->id: %d - %d - %d - %d - %d\n", __func__, ctrl->id
+			, V4L2_CID_SATURATION, V4L2_CID_AUTO_WHITE_BALANCE, V4L2_CID_AUTOGAIN, V4L2_CID_EXPOSURE_AUTO);
 	switch (ctrl->id) {
 	case V4L2_CID_SATURATION:
 		ret = ov5645_set_saturation(ov5645, ctrl->val);
@@ -823,7 +901,7 @@ static int ov5645_s_ctrl(struct v4l2_ctrl *ctrl)
 		ret = ov5645_set_vflip(ov5645, ctrl->val);
 		break;
 	default:
-		ret = -EINVAL;
+		ret = 0;// -EINVAL;
 		break;
 	}
 
@@ -833,6 +911,7 @@ static int ov5645_s_ctrl(struct v4l2_ctrl *ctrl)
 }
 
 static const struct v4l2_ctrl_ops ov5645_ctrl_ops = {
+	.g_volatile_ctrl = ov5645_g_volatile_ctrl,
 	.s_ctrl = ov5645_s_ctrl,
 };
 
@@ -843,7 +922,7 @@ static int ov5645_enum_mbus_code(struct v4l2_subdev *sd,
 	if (code->index > 0)
 		return -EINVAL;
 
-	code->code = MEDIA_BUS_FMT_UYVY8_1X16;
+	code->code = MEDIA_BUS_FMT_YUYV8_1X16;//MEDIA_BUS_FMT_UYVY8_1X16;
 
 	return 0;
 }
@@ -852,8 +931,13 @@ static int ov5645_enum_frame_size(struct v4l2_subdev *subdev,
 				  struct v4l2_subdev_state *sd_state,
 				  struct v4l2_subdev_frame_size_enum *fse)
 {
-	if (fse->code != MEDIA_BUS_FMT_UYVY8_1X16)
+	struct ov5645 *ov5645 = to_ov5645(subdev);
+
+	AD_DEV_DBG(ov5645->dev, "%s: Enter.  fse->index: %d; fse->code: %d; ARRAY_SIZE(ov5645_mode_info_data): %lu;\n", __func__, fse->index, fse->code, ARRAY_SIZE(ov5645_mode_info_data));
+	if (fse->code != MEDIA_BUS_FMT_YUYV8_1X16/*MEDIA_BUS_FMT_UYVY8_1X16*/) {
+		AD_DEV_DBG(ov5645->dev, "%s: fse->index: %d; fse->code: %d;   ---> fse->code != MEDIA_BUS_FMT_YUYV8_1X16\n", __func__, fse->index, fse->code);
 		return -EINVAL;
+	}
 
 	if (fse->index >= ARRAY_SIZE(ov5645_mode_info_data))
 		return -EINVAL;
@@ -862,6 +946,9 @@ static int ov5645_enum_frame_size(struct v4l2_subdev *subdev,
 	fse->max_width = ov5645_mode_info_data[fse->index].width;
 	fse->min_height = ov5645_mode_info_data[fse->index].height;
 	fse->max_height = ov5645_mode_info_data[fse->index].height;
+
+	AD_DEV_DBG(ov5645->dev, "%s: fse->min_width: %d; fse->max_width: %d; fse->min_height: %d; fse->max_height: %d;\n", __func__, fse->min_width, fse->max_width, fse->min_height, fse->max_height);
+
 
 	return 0;
 }
@@ -930,16 +1017,24 @@ static int ov5645_set_format(struct v4l2_subdev *sd,
 	__crop->width = new_mode->width;
 	__crop->height = new_mode->height;
 
+	AD_DEV_DBG(ov5645->dev, "%s: __crop->width: %d; __crop->height: %d\n", __func__, __crop->width,  __crop->height);
+
 	if (format->which == V4L2_SUBDEV_FORMAT_ACTIVE) {
+		AD_DEV_DBG(ov5645->dev, "%s: format->which == V4L2_SUBDEV_FORMAT_ACTIVE\n", __func__);
 		ret = v4l2_ctrl_s_ctrl_int64(ov5645->pixel_clock,
 					     new_mode->pixel_clock);
-		if (ret < 0)
+		AD_DEV_DBG(ov5645->dev, "%s: after 1 ret: %d\n", __func__, ret);
+
+		if (ret < 0) {
 			return ret;
+		}
 
 		ret = v4l2_ctrl_s_ctrl(ov5645->link_freq,
 				       new_mode->link_freq);
-		if (ret < 0)
+		AD_DEV_DBG(ov5645->dev, "%s: after 2 ret: %d\n", __func__, ret);
+		if (ret < 0) {
 			return ret;
+		}
 
 		ov5645->current_mode = new_mode;
 	}
@@ -948,7 +1043,7 @@ static int ov5645_set_format(struct v4l2_subdev *sd,
 					   format->which);
 	__format->width = __crop->width;
 	__format->height = __crop->height;
-	__format->code = MEDIA_BUS_FMT_UYVY8_1X16;
+	__format->code = MEDIA_BUS_FMT_YUYV8_1X16;//MEDIA_BUS_FMT_UYVY8_1X16;
 	__format->field = V4L2_FIELD_NONE;
 	__format->colorspace = V4L2_COLORSPACE_SRGB;
 
@@ -1028,11 +1123,251 @@ static int ov5645_s_stream(struct v4l2_subdev *subdev, int enable)
 	return 0;
 }
 
+
+static const struct ov5645_mode_info *
+ov5645_find_mode(struct ov5645 *sensor, int width, int height, bool nearest)
+{
+	const struct ov5645_mode_info *mode;
+
+	mode = v4l2_find_nearest_size(ov5645_mode_info_data,
+				      ARRAY_SIZE(ov5645_mode_info_data),
+				      width, height, width, height);
+
+	if (!mode ||
+	    (!nearest &&
+	     (mode->width != width || mode->height != height)))
+		return NULL;
+
+	return mode;
+}
+
+static int ov5645_try_frame_interval(struct ov5645 *sensor,
+				     struct v4l2_fract *fi,
+				     u32 width, u32 height)
+{
+	const struct ov5645_mode_info *mode;
+	enum ov5645_frame_rate rate = OV5645_15_FPS;
+	int minfps, maxfps, best_fps, fps;
+	int i;
+
+	mode = ov5645_find_mode(sensor, width, height, false);
+	if (!mode)
+		return -EINVAL;
+
+	minfps = ov5645_framerates[OV5645_15_FPS];
+	maxfps = ov5645_framerates[mode->max_fps];
+
+	if (fi->numerator == 0) {
+		fi->denominator = maxfps;
+		fi->numerator = 1;
+		rate = mode->max_fps;
+		goto find_mode;
+	}
+
+	fps = clamp_val(DIV_ROUND_CLOSEST(fi->denominator, fi->numerator),
+			minfps, maxfps);
+
+	best_fps = minfps;
+	for (i = 0; i < ARRAY_SIZE(ov5645_framerates); i++) {
+		int curr_fps = ov5645_framerates[i];
+
+		if (abs(curr_fps - fps) < abs(best_fps - fps)) {
+			best_fps = curr_fps;
+			rate = i;
+		}
+	}
+
+	fi->numerator = 1;
+	fi->denominator = best_fps;
+
+find_mode:
+	mode = ov5645_find_mode(sensor, width, height, false);
+	return mode ? rate : -EINVAL;
+}
+#if 0
+static int ov5645_update_pixel_rate(struct ov5645 *sensor)
+{
+	const struct ov5645_mode_info *mode = sensor->current_mode;
+	enum ov5640_pixel_rate_id pixel_rate_id = mode->pixel_rate;
+	struct v4l2_mbus_framefmt *fmt = &sensor->fmt;
+	const struct ov5640_timings *timings = ov5640_timings(sensor, mode);
+	s32 exposure_val, exposure_max;
+	unsigned int hblank;
+	unsigned int i = 0;
+	u32 pixel_rate;
+	s64 link_freq;
+	u32 num_lanes;
+	u32 vblank;
+	u32 bpp;
+
+	/*
+	 * Update the pixel rate control value.
+	 *
+	 * For DVP mode, maintain the pixel rate calculation using fixed FPS.
+	 */
+	if (!ov5640_is_csi2(sensor)) {
+		__v4l2_ctrl_s_ctrl_int64(sensor->ctrls.pixel_rate,
+					 ov5640_calc_pixel_rate(sensor));
+
+		__v4l2_ctrl_vblank_update(sensor, timings->vblank_def);
+
+		return 0;
+	}
+
+	/*
+	 * The MIPI CSI-2 link frequency should comply with the CSI-2
+	 * specification and be lower than 1GHz.
+	 *
+	 * Start from the suggested pixel_rate for the current mode and
+	 * progressively slow it down if it exceeds 1GHz.
+	 */
+	num_lanes = sensor->ep.bus.mipi_csi2.num_data_lanes;
+	bpp = ov5640_code_to_bpp(sensor, fmt->code);
+	do {
+		pixel_rate = ov5640_pixel_rates[pixel_rate_id];
+		link_freq = pixel_rate * bpp / (2 * num_lanes);
+	} while (link_freq >= 1000000000U &&
+		 ++pixel_rate_id < OV5640_NUM_PIXEL_RATES);
+
+	sensor->current_link_freq = link_freq;
+
+	/*
+	 * Higher link rates require the clock tree to be programmed with
+	 * 'mipi_div' = 1; this has the effect of halving the actual output
+	 * pixel rate in the MIPI domain.
+	 *
+	 * Adjust the pixel rate and link frequency control value to report it
+	 * correctly to userspace.
+	 */
+	if (link_freq > OV5640_LINK_RATE_MAX) {
+		pixel_rate /= 2;
+		link_freq /= 2;
+	}
+
+	for (i = 0; i < ARRAY_SIZE(ov5640_csi2_link_freqs); ++i) {
+		if (ov5640_csi2_link_freqs[i] == link_freq)
+			break;
+	}
+	WARN_ON(i == ARRAY_SIZE(ov5640_csi2_link_freqs));
+
+	__v4l2_ctrl_s_ctrl_int64(sensor->ctrls.pixel_rate, pixel_rate);
+	__v4l2_ctrl_s_ctrl(sensor->ctrls.link_freq, i);
+
+	hblank = timings->htot - mode->width;
+	__v4l2_ctrl_modify_range(sensor->ctrls.hblank,
+				 hblank, hblank, 1, hblank);
+
+	vblank = timings->vblank_def;
+
+	if (sensor->current_fr != mode->def_fps) {
+		/*
+		 * Compute the vertical blanking according to the framerate
+		 * configured with s_frame_interval.
+		 */
+		int fie_num = sensor->frame_interval.numerator;
+		int fie_denom = sensor->frame_interval.denominator;
+
+		vblank = ((fie_num * pixel_rate / fie_denom) / timings->htot) -
+			mode->height;
+	}
+
+	__v4l2_ctrl_vblank_update(sensor, vblank);
+
+	exposure_max = timings->crop.height + vblank - 4;
+	exposure_val = clamp_t(s32, sensor->ctrls.exposure->val,
+			       sensor->ctrls.exposure->minimum,
+			       exposure_max);
+
+	__v4l2_ctrl_modify_range(sensor->ctrls.exposure,
+				 sensor->ctrls.exposure->minimum,
+				 exposure_max, 1, exposure_val);
+
+	return 0;
+}
+
+#endif
+static int ov5645_g_frame_interval(struct v4l2_subdev *sd,
+				   struct v4l2_subdev_frame_interval *fi)
+{
+	struct ov5645 *sensor = to_ov5645(sd);
+
+	// -- mutex_lock(&sensor->lock);
+	fi->interval = sensor->frame_interval;
+	// -- mutex_unlock(&sensor->lock);
+	return 0;
+}
+
+static int ov5645_s_frame_interval(struct v4l2_subdev *sd,
+				   struct v4l2_subdev_frame_interval *fi)
+{
+	struct ov5645 *sensor = to_ov5645(sd);
+
+	const struct ov5645_mode_info *mode;
+	int frame_rate, ret = 0;
+
+	if (fi->pad != 0)
+		return -EINVAL;
+
+	//mutex_lock(&sensor->lock);
+
+	if (sensor->streaming) {
+		ret = -EBUSY;
+		goto out;
+	}
+
+	mode = sensor->current_mode;
+
+	frame_rate = ov5645_try_frame_interval(sensor, &fi->interval,
+					       mode->width,
+					       mode->height);
+	AD_DEV_DBG(sensor->dev, "%s: after ov5645_try_frame_interval. mode->width: %d; mode->height: %d; frame_rate: %d;\n", __func__, mode->width, mode->height, frame_rate);
+	if (frame_rate < 0) {
+		/* Always return a valid frame interval value */
+		fi->interval = sensor->frame_interval;
+		goto out;
+	}
+
+	mode = ov5645_find_mode(sensor, mode->width, mode->height, true);
+
+
+
+	if (!mode) {
+		ret = -EINVAL;
+		goto out;
+	}
+
+	AD_DEV_DBG(sensor->dev, "%s: after ov5645_find_mode. mode->width: %d; mode->height: %d;\n", __func__, mode->width, mode->height);
+	AD_DEV_DBG(sensor->dev, "%s: ov5645_framerates[frame_rate]: %d; ov5645_framerates[mode->max_fps] : %d;\n", __func__, ov5645_framerates[frame_rate], ov5645_framerates[mode->max_fps]);
+
+	if (ov5645_framerates[frame_rate] > ov5645_framerates[mode->max_fps]) {
+		ret = -EINVAL;
+		goto out;
+	}
+
+	if (mode != sensor->current_mode ||
+	    frame_rate != sensor->current_fr) {
+		sensor->current_fr = frame_rate;
+		sensor->frame_interval = fi->interval;
+		sensor->current_mode = mode;
+		sensor->pending_mode_change = true;
+
+		//--------------ov5645_update_pixel_rate(sensor);
+	}
+out:
+	//mutex_unlock(&sensor->lock);
+	return ret;
+}
+
 static const struct v4l2_subdev_core_ops ov5645_core_ops = {
 	.s_power = ov5645_s_power,
+	.log_status = v4l2_ctrl_subdev_log_status,
+	.subscribe_event = v4l2_ctrl_subdev_subscribe_event,
+	.unsubscribe_event = v4l2_event_subdev_unsubscribe,
 };
 
 static const struct v4l2_subdev_video_ops ov5645_video_ops = {
+	.g_frame_interval = ov5645_g_frame_interval,
+	.s_frame_interval = ov5645_s_frame_interval,
 	.s_stream = ov5645_s_stream,
 };
 
@@ -1049,6 +1384,17 @@ static const struct v4l2_subdev_ops ov5645_subdev_ops = {
 	.core = &ov5645_core_ops,
 	.video = &ov5645_video_ops,
 	.pad = &ov5645_subdev_pad_ops,
+};
+
+static int ov5645_link_setup(struct media_entity *entity,
+			   const struct media_pad *local,
+			   const struct media_pad *remote, u32 flags)
+{
+	return 0;
+}
+
+static const struct media_entity_operations ov5645_sd_media_ops = {
+	.link_setup = ov5645_link_setup,
 };
 
 static int ov5645_probe(struct i2c_client *client)
@@ -1123,7 +1469,7 @@ static int ov5645_probe(struct i2c_client *client)
 	if (ret < 0)
 		return ret;
 
-	ov5645->enable_gpio = devm_gpiod_get(dev, "enable", GPIOD_OUT_HIGH);
+	ov5645->enable_gpio = devm_gpiod_get(dev, "enable", GPIOD_OUT_LOW);
 	if (IS_ERR(ov5645->enable_gpio)) {
 		dev_err(dev, "cannot get enable gpio\n");
 		return PTR_ERR(ov5645->enable_gpio);
@@ -1179,6 +1525,7 @@ static int ov5645_probe(struct i2c_client *client)
 	v4l2_i2c_subdev_init(&ov5645->sd, client, &ov5645_subdev_ops);
 	ov5645->sd.flags |= V4L2_SUBDEV_FL_HAS_DEVNODE;
 	ov5645->pad.flags = MEDIA_PAD_FL_SOURCE;
+	ov5645->sd.entity.ops = &ov5645_sd_media_ops;
 	ov5645->sd.dev = &client->dev;
 	ov5645->sd.entity.function = MEDIA_ENT_F_CAM_SENSOR;
 

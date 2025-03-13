@@ -346,7 +346,7 @@
 		compatible = "smb-ti-bq40z80";
 		reg = <0xb>;
 		sciaps,support-shutdown = <1>;
-		sciaps,shutdown-timer   = <25>;
+		sciaps,shutdown-timer   = <15>;
 		sciaps,capacity-low-thres-mAh = <10>;
 		sciaps,capacity-low-thres = <5>; // 0.5 %
 		sciaps,voltage-crit-low-thres-mV = <11000>;

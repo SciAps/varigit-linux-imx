@@ -180,6 +180,7 @@ dtb-$(CONFIG_ARCH_MXC) += imx8mp-var-dart-wbe-dt8mcustomboard-basler-isp0.dtb
 dtb-$(CONFIG_ARCH_MXC) += imx8mp-var-dart-wbe-dt8mcustomboard-m7.dtb
 
 dtb-$(CONFIG_ARCH_MXC) += imx8mp-var-dart-sciaps-nir-0.x.dtb
+dtb-$(CONFIG_ARCH_MXC) += imx8mp-var-dart-sciaps-nir.dtb
 
 dtb-$(CONFIG_ARCH_MXC) += imx8mp-var-som-symphony.dtb
 dtb-$(CONFIG_ARCH_MXC) += imx8mp-var-som-symphony-2nd-ov5640-m7.dtb

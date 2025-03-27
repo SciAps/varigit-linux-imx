@@ -263,23 +263,22 @@
 	};
 
 
-//-------------------------
-	//typec@3d {
-	//	compatible = "nxp,ptn5150";
-	//	pinctrl-names = "default";
-	//	pinctrl-0 = <&pinctrl_extcon>;
-	//	reg = <0x3d>;
-	//	interrupt-parent = <&gpio1>;
-	//	interrupts = <10 IRQ_TYPE_LEVEL_HIGH>;
-	//	irq-is-id-quirk;
-	//	status ="disabled";
-//
-//		port {
-//			typec_dr_sw: endpoint {
-//				remote-endpoint = <&usb3_drd_sw>;
-//			};
-//		};
-//	};
+	typec@3d {
+		compatible = "nxp,ptn5150";
+		pinctrl-names = "default";
+		pinctrl-0 = <&pinctrl_extcon>;
+		reg = <0x3d>;
+		interrupt-parent = <&gpio1>;
+		interrupts = <10 IRQ_TYPE_LEVEL_HIGH>;
+		irq-is-id-quirk;
+		status ="okay";
+
+		port {
+			typec_dr_sw: endpoint {
+				remote-endpoint = <&usb3_drd_sw>;
+			};
+		};
+	};
 };
 
 &i2c3 {
@@ -346,7 +345,7 @@
 		compatible = "smb-ti-bq40z80";
 		reg = <0xb>;
 		sciaps,support-shutdown = <1>;
-		sciaps,shutdown-timer   = <15>;
+		sciaps,shutdown-timer   = <12>;
 		sciaps,capacity-low-thres-mAh = <10>;
 		sciaps,capacity-low-thres = <5>; // 0.5 %
 		sciaps,voltage-crit-low-thres-mV = <11000>;
@@ -606,22 +605,20 @@
 
 &usb_dwc3_0 {
 	dr_mode = "otg";
-	//dr_mode = "peripheral";
 	hnp-disable;
 	srp-disable;
 	adp-disable;
 	usb-role-switch;
-	//role-switch-default-mode = "none";
-	role-switch-default-mode = "peripheral";
+	role-switch-default-mode = "none";
 	snps,dis-u1-entry-quirk;
 	snps,dis-u2-entry-quirk;
 	status = "okay";
 
-	//port {
-	//	usb3_drd_sw: endpoint {
-	//		remote-endpoint = <&typec_dr_sw>;
-	//	};
-	//};
+	port {
+		usb3_drd_sw: endpoint {
+			remote-endpoint = <&typec_dr_sw>;
+		};
+	};
 };
 
 &usb3_phy1 {
@@ -984,6 +981,12 @@
 			MX8MP_IOMUXC_SAI2_TXFS__GPIO4_IO24				0x16 // DPP_UART_SEL_nPROG as nCS1: weak pullup enabled, Fast slew rate, drivestrength x6
 			MX8MP_IOMUXC_SAI2_RXD0__GPIO4_IO23				0x16 // SOM_DPP_JTAG_EN as nCS2: weak pullup enabled, Fast slew rate, drivestrength x6
 			MX8MP_IOMUXC_SAI2_RXC__GPIO4_IO22				0x156 // DPP_nUART_SPI: weak pullup enabled, Fast slew rate, drivestrength x6
+		>;
+	};
+
+	pinctrl_extcon: extcongrp {
+		fsl,pins = <
+			MX8MP_IOMUXC_GPIO1_IO10__GPIO1_IO10				0x10
 		>;
 	};
 

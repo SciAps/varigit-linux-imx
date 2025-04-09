@@ -565,7 +565,12 @@ static s32 brcmf_p2p_deinit_discovery(struct brcmf_p2p_info *p2p)
 
 	/* Set the discovery state to SCAN */
 	vif = p2p->bss_idx[P2PAPI_BSSCFG_DEVICE].vif;
-	(void)brcmf_p2p_set_discover_state(vif->ifp, WL_P2P_DISC_ST_SCAN, 0, 0);
+	if (vif) {
+		(void)brcmf_p2p_set_discover_state(vif->ifp, WL_P2P_DISC_ST_SCAN, 0, 0);
+	}
+	else {
+		brcmf_info("No p2p device available for P2PAPI_BSSCFG_DEVICE!\n");
+	}
 
 	/* Disable P2P discovery in the firmware */
 	vif = p2p->bss_idx[P2PAPI_BSSCFG_PRIMARY].vif;
@@ -590,7 +595,7 @@ static int brcmf_p2p_enable_discovery(struct brcmf_p2p_info *p2p)
 	brcmf_dbg(TRACE, "enter\n");
 	vif = p2p->bss_idx[P2PAPI_BSSCFG_DEVICE].vif;
 	if (!vif) {
-		bphy_err(drvr, "P2P config device not available\n");
+		bphy_err(drvr, "No p2p device available for P2PAPI_BSSCFG_DEVICE!\n");
 		ret = -EPERM;
 		goto exit;
 	}
@@ -608,10 +613,15 @@ static int brcmf_p2p_enable_discovery(struct brcmf_p2p_info *p2p)
 		goto exit;
 	}
 	vif = p2p->bss_idx[P2PAPI_BSSCFG_DEVICE].vif;
-	ret = brcmf_p2p_set_discover_state(vif->ifp, WL_P2P_DISC_ST_SCAN, 0, 0);
-	if (ret < 0) {
-		bphy_err(drvr, "unable to set WL_P2P_DISC_ST_SCAN\n");
-		goto exit;
+	if (vif) {
+		ret = brcmf_p2p_set_discover_state(vif->ifp, WL_P2P_DISC_ST_SCAN, 0, 0);
+		if (ret < 0) {
+			bphy_err(drvr, "unable to set WL_P2P_DISC_ST_SCAN\n");
+			goto exit;
+		}
+	}
+	else {
+			bphy_err(drvr, "No p2p device available for P2PAPI_BSSCFG_DEVICE!\n");
 	}
 
 	/*
@@ -1281,8 +1291,15 @@ static s32 brcmf_p2p_abort_action_frame(struct brcmf_cfg80211_info *cfg)
 	brcmf_dbg(TRACE, "Enter\n");
 
 	vif = p2p->bss_idx[P2PAPI_BSSCFG_DEVICE].vif;
-	err = brcmf_fil_bsscfg_data_set(vif->ifp, "actframe_abort", &int_val,
-					sizeof(s32));
+	if (vif) {
+		err = brcmf_fil_bsscfg_data_set(vif->ifp, "actframe_abort", &int_val,
+						sizeof(s32));
+	}
+	else {
+		brcmf_err("No p2p device available for P2PAPI_BSSCFG_DEVICE!\n");
+		err = -ENODEV;
+	}
+
 	if (err)
 		brcmf_err(" aborting action frame has failed (%d)\n", err);
 
@@ -1351,6 +1368,11 @@ brcmf_p2p_gon_req_collision(struct brcmf_p2p_info *p2p, u8 *mac)
 	 * if not (sa addr > da addr),
 	 * this device will process gon request and drop gon req of peer.
 	 */
+	if (!p2p->bss_idx[P2PAPI_BSSCFG_DEVICE].vif) {
+		brcmf_err("No p2p device available for P2PAPI_BSSCFG_DEVICE!\n");
+		return false;
+	}
+
 	ifp = p2p->bss_idx[P2PAPI_BSSCFG_DEVICE].vif->ifp;
 	if (memcmp(mac, ifp->mac_addr, ETH_ALEN) < 0) {
 		brcmf_dbg(INFO, "Block transmit gon req !!!\n");
@@ -1558,6 +1580,12 @@ static s32 brcmf_p2p_tx_action_frame(struct brcmf_p2p_info *p2p,
 		vif = p2p->bss_idx[P2PAPI_BSSCFG_CONNECTION].vif;
 	else
 		vif = p2p->bss_idx[P2PAPI_BSSCFG_DEVICE].vif;
+
+	if (!vif) {
+		bphy_err(drvr, "No p2p device available to work with!\n");
+		err = -ENODEV;
+		goto exit;
+	}
 
 	err = brcmf_fil_bsscfg_data_set(vif->ifp, "actframe", af_params,
 					sizeof(*af_params));
@@ -1826,6 +1854,7 @@ bool brcmf_p2p_send_action_frame(struct brcmf_cfg80211_info *cfg,
 	/* validate channel and p2p ies */
 	if (config_af_params.search_channel &&
 	    IS_P2P_SOCIAL_CHANNEL(le32_to_cpu(af_params->channel)) &&
+		p2p->bss_idx[P2PAPI_BSSCFG_DEVICE].vif &&
 	    p2p->bss_idx[P2PAPI_BSSCFG_DEVICE].vif->saved_ie.probe_req_ie_len) {
 		afx_hdl = &p2p->afx_hdl;
 		afx_hdl->peer_listen_chan = le32_to_cpu(af_params->channel);
@@ -1854,6 +1883,7 @@ bool brcmf_p2p_send_action_frame(struct brcmf_cfg80211_info *cfg,
 	while (!p2p->block_gon_req_tx &&
 	       (!ack) && (tx_retry < P2P_AF_TX_MAX_RETRY) &&
 		!dwell_overflow) {
+
 		if (af_params->channel)
 			msleep(P2P_AF_RETRY_DELAY_TIME);
 
@@ -2478,7 +2508,7 @@ void brcmf_p2p_stop_device(struct wiphy *wiphy, struct wireless_dev *wdev)
 	 * we dont want to do anything anymore. Just return. The config vif
 	 * will have been cleared at this point.
 	 */
-	if (p2p->bss_idx[P2PAPI_BSSCFG_DEVICE].vif == vif) {
+	if (p2p->bss_idx[P2PAPI_BSSCFG_DEVICE].vif && p2p->bss_idx[P2PAPI_BSSCFG_DEVICE].vif == vif) {
 		mutex_lock(&cfg->usr_sync);
 		/* Set the discovery state to SCAN */
 		(void)brcmf_p2p_set_discover_state(vif->ifp,

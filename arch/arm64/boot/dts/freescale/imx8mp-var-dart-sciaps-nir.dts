@@ -256,7 +256,7 @@
 		pinctrl-0 = <&pinctrl_rtc>;
 		interrupt-parent = <&gpio5>;
 		interrupts = <4 IRQ_TYPE_EDGE_FALLING>;
-		wakeup-source;
+		//wakeup-source;
 		status = "okay";
 	};
 

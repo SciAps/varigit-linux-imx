@@ -252,10 +252,10 @@
 		reg = <0x52>;
 		trickle-resistor-ohms = <3000>;
 		backup-switchover-mode = <1>;
-		pinctrl-names = "default";
-		pinctrl-0 = <&pinctrl_rtc>;
-		interrupt-parent = <&gpio5>;
-		interrupts = <4 IRQ_TYPE_EDGE_FALLING>;
+		//pinctrl-names = "default";
+		//pinctrl-0 = <&pinctrl_rtc>;
+		//interrupt-parent = <&gpio5>;
+		//interrupts = <4 IRQ_TYPE_EDGE_FALLING>;
 		//wakeup-source;
 		status = "okay";
 	};

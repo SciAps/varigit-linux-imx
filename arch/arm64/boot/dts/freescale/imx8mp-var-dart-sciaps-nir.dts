@@ -19,37 +19,35 @@
 		pinctrl-names = "default";
 		pinctrl-0 = <&pinctrl_gpio_keys>;
 		status = "okay";
-/*
+
 		back {
 			label = "Back";
 			linux,code = <KEY_BACK>;
-			gpios = <&pca6408_1 7 GPIO_ACTIVE_LOW>;
-					  IRQF_TRIGGER_RISING | IRQF_TRIGGER_FALLING | IRQF_SHARED, client->name, priv);
+			gpios = <&pca9554_1 0 GPIO_ACTIVE_LOW>;
 			wakeup-source;
 		};
 
 		up {
 			label = "Up";
 			linux,code = <KEY_UP>;
-			gpios = <&pca6408_1 5 GPIO_ACTIVE_LOW>;
+			gpios = <&pca9554_1 1 GPIO_ACTIVE_LOW>;
 			wakeup-source;
 		};
 
 		home {
 			label = "Home";
 			linux,code = <KEY_HOMEPAGE>;
-			gpios = <&pca6408_1 4 GPIO_ACTIVE_LOW>;
+			gpios = <&pca9554_1 3 GPIO_ACTIVE_LOW>;
 			wakeup-source;
 		};
 
 		down {
 			label = "Down";
 			linux,code = <KEY_DOWN>;
-			gpios = <&pca6408_1 6 GPIO_ACTIVE_LOW>;
+			gpios = <&pca9554_1 2 GPIO_ACTIVE_LOW>;
 			wakeup-source;
 		};
 
-*/
 		power {
 			label = "onoff-button";
 			linux,code = <KEY_POWER>;
@@ -254,11 +252,11 @@
 		reg = <0x52>;
 		trickle-resistor-ohms = <3000>;
 		backup-switchover-mode = <1>;
-		//pinctrl-names = "default";
-		//pinctrl-0 = <&pinctrl_rtc>;
-		//interrupt-parent = <&gpio1>;
-		//interrupts = <15 IRQ_TYPE_EDGE_FALLING>;
-		//wakeup-source;
+		pinctrl-names = "default";
+		pinctrl-0 = <&pinctrl_rtc>;
+		interrupt-parent = <&gpio5>;
+		interrupts = <4 IRQ_TYPE_EDGE_FALLING>;
+		wakeup-source;
 		status = "okay";
 	};
 
@@ -338,12 +336,15 @@
 		pinctrl-names = "default";
 		pinctrl-0 = <&pinctrl_sciapsmicro>;
 		sciaps-trigger-gpio = <&gpio1 9 GPIO_ACTIVE_LOW>;
+		smart-battery-comm-enable-gpio = <&pca9554_1 4 GPIO_ACTIVE_HIGH>;
 		status = "okay";
 	};
 
 	ie-battery@b {
 		compatible = "smb-ti-bq40z80";
 		reg = <0xb>;
+		pinctrl-names = "default";
+		pinctrl-0 = <&pinctrl_battery>;
 		sciaps,support-shutdown = <1>;
 		sciaps,shutdown-timer   = <12>;
 		sciaps,capacity-low-thres-mAh = <10>;
@@ -351,26 +352,33 @@
 		sciaps,voltage-crit-low-thres-mV = <11000>;
 		sciaps,voltage-low-thres-mV = <14000>;
 		sciaps,charging-current-mA = <1700>;
+		sciaps,poll-interval = <10>; // seconds
+		sciaps,poll-slow-enable-count = <6>; // # Number of retries before entering slow polling mode: ~60 s on 10 seconds interval
+		sciaps,poll-interval-slow = <60>; //seconds
+		sciaps-scap-npfo-gpio = <&gpio1 0 GPIO_ACTIVE_HIGH>;
 		status = "okay";
 	};
 
 	ie-charger@9 {
 		compatible = "smb-ltc4100-charger";
 		reg = <0x9>;
+		sciaps,poll-interval = <2>; // seconds
+		sciaps,poll-slow-enable-count = <30>; // # Number of retries before entering slow polling mode: ~60 s on 2 seconds interval
+		sciaps,poll-interval-slow = <2>; //seconds - slow mode  is the same as we need to detect quickly when the charger gets plugged in
 		status = "okay";
 	};
 
-	pca6408_1: gpio@20 {
-		compatible = "nxp,pcal6408";
+	pca9554_1: gpio@3c {
+		compatible = "nxp,pca9554";
 		standard-regs-fallback;
-		reg = <0x20>;
+		reg = <0x3c>;
 		gpio-controller;
 		#gpio-cells = <2>;
 		pinctrl-names = "default";
-		pinctrl-0 = <&pinctrl_pca6408>;
+		pinctrl-0 = <&pinctrl_pca9554>;
 		interrupt-parent = <&gpio1>;
 		interrupts = <5 IRQ_TYPE_EDGE_FALLING>;
-		status = "disabled";
+		status = "okay";
 	};
 
 	pca6408_2: gpio@21 {
@@ -1008,11 +1016,11 @@
 	pinctrl_can: cangrp {
 		fsl,pins = <
 			MX8MP_IOMUXC_GPIO1_IO06__GPIO1_IO06				0x1c6
-			MX8MP_IOMUXC_SPDIF_RX__GPIO5_IO04				0x16
+			//-----MX8MP_IOMUXC_SPDIF_RX__GPIO5_IO04				0x16
 		>;
 	};
 
-	pinctrl_pca6408: pca6408grp {
+	pinctrl_pca9554: pca9554grp {
 		fsl,pins = <
 			MX8MP_IOMUXC_GPIO1_IO05__GPIO1_IO05				0x1c6
 		>;
@@ -1024,11 +1032,17 @@
 		>;
 	};
 
-//	pinctrl_rtc: rtcgrp {
-//		fsl,pins = <
-//			MX8MP_IOMUXC_GPIO1_IO15__GPIO1_IO15				0x1c0
-//		>;
-//	};
+	pinctrl_battery: batterygrp {
+		fsl,pins = <
+			MX8MP_IOMUXC_GPIO1_IO00__GPIO1_IO00				0x1c6
+		>;
+	};
+
+	pinctrl_rtc: rtcgrp {
+		fsl,pins = <
+			MX8MP_IOMUXC_SPDIF_RX__GPIO5_IO04				0x1c0
+		>;
+	};
 
 	pinctrl_sciapsmicro: sciapsmicrogrp {
 		fsl,pins = <

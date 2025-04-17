@@ -735,6 +735,7 @@
         spi-max-frequency = <12000000>;
         spi-cpha = <1>;
         spi-cpol = <0>;
+		brcm,nir2-cooling-temp-C = <0xc1200000>;
         status = "okay";
     };
 

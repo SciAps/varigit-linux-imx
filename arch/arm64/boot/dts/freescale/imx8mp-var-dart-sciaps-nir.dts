@@ -11,6 +11,7 @@
 	model = "SciAps NIR rev. 3 (version 0.1) based on Variscite DART-MX8M-PLUS";
 	chosen {
 		stdout-path = &uart1;
+		//bootargs-append = "earlycon=ec_imx6q,0x30860000,1/15200 androidboot.primary_display=imx-drm moal.mod_para=wifi_mod_para_sd8987.conf androidboot.selinux=permissive ro.control_privapp_permissions=log";
 		bootargs-append = "console=ttymxc0,115200 earlycon=ec_imx6q,0x30860000,1/15200 androidboot.console=ttymxc0 androidboot.primary_display=imx-drm moal.mod_para=wifi_mod_para_sd8987.conf androidboot.selinux=permissive ro.control_privapp_permissions=log";
 	};
 
@@ -211,34 +212,32 @@
 		};
 	};
 
-	ov5640_mipi1: ov5640_mipi@3c {
+	ov5645_mipi1: ov5645_mipi@3c {
 		compatible = "ovti,ov5645";
 		reg = <0x3c>;
 		pinctrl-names = "default";
 		pinctrl-0 = <&pinctrl_mipi_csi_1_gpios>;
+#if 0
+		// Disabled as the board uses its own oscillator.
 		clocks = <&clk IMX8MP_CLK_IPP_DO_CLKO2>;
 		clock-names = "xclk";
-/* Disabled CLKO2, since DART-MX8MP camera expansion board uses
- * its own oscillator. Enable CLK02 if your desing requres it
- */
-#if 0
 		assigned-clocks = <&clk IMX8MP_CLK_IPP_DO_CLKO2>;
 		assigned-clock-parents = <&clk IMX8MP_CLK_24M>;
+		clock-frequency = <24000000>;
+		mclk = <24000000>;
+		mclk_source = <0>;
 #endif
 		assigned-clock-rates = <24000000>;
 		csi_id = <1>;
 		enable-gpios = <&gpio3 9 GPIO_ACTIVE_HIGH>;
-		//powerdown-gpios = <&gpio3 9 GPIO_ACTIVE_HIGH>;
 		reset-gpios = <&gpio3 6 GPIO_ACTIVE_LOW>;
 		mclk-enable-gpios = <&gpio3 8 GPIO_ACTIVE_HIGH>;
-		clock-frequency = <24000000>;
-		mclk = <24000000>;
-		mclk_source = <0>;
+		external-power-supplies;
 		mipi_csi;
 		status = "okay";
 
 		port {
-			ov5640_mipi_1_ep: endpoint {
+			ov5645_mipi_1_ep: endpoint {
 				remote-endpoint = <&mipi_csi1_ep>;
 				data-lanes = <1 2>;
 				clock-lanes = <0>;
@@ -401,34 +400,33 @@
 	sda-gpios = <&gpio3 25 GPIO_ACTIVE_HIGH>;
 	status = "okay";
 
-	ov5640_mipi0: ov5640_mipi@3c {
+	ov5645_mipi0: ov5645_mipi@3c {
 		compatible = "ovti,ov5645";
 		reg = <0x3c>;
 		pinctrl-names = "default";
 		pinctrl-0 = <&pinctrl_mipi_csi_0_gpios>;
+#if 0
+		// Disabled as the board uses its own oscillator.
 		clocks = <&clk IMX8MP_CLK_IPP_DO_CLKO2>;
 		clock-names = "xclk";
-// Disabled CLKO2, since DART-MX8MP camera expansion board uses
-// its own oscillator. Enable CLK02 if your desing requres it
-//
-#if 0
 		assigned-clocks = <&clk IMX8MP_CLK_IPP_DO_CLKO2>;
 		assigned-clock-parents = <&clk IMX8MP_CLK_24M>;
+		clock-frequency = <24000000>;
+		mclk = <24000000>;
+		mclk_source = <0>;
 #endif
 		assigned-clock-rates = <24000000>;
 		csi_id = <0>;
 		enable-gpios = <&gpio3 7 GPIO_ACTIVE_HIGH>;
-		//powerdown-gpios = <&gpio3 7 GPIO_ACTIVE_HIGH>;
 		reset-gpios = <&gpio3 1 GPIO_ACTIVE_LOW>;
 		mclk-enable-gpios = <&gpio3 14 GPIO_ACTIVE_HIGH>;
-		clock-frequency = <24000000>;
-		mclk = <24000000>;
-		mclk_source = <0>;
 		mipi_csi;
+		auto-focus;
+		external-power-supplies;
 		status = "okay";
 
 		port {
-			ov5640_mipi_0_ep: endpoint {
+			ov5645_mipi_0_ep: endpoint {
 				remote-endpoint = <&mipi_csi0_ep>;
 				data-lanes = <1 2>;
 				clock-lanes = <0>;
@@ -660,14 +658,18 @@
 	#address-cells = <1>;
 	#size-cells = <0>;
 	status = "okay";
+	clock-frequency = <266000000>;
+	assigned-clock-parents = <&clk IMX8MP_SYS_PLL1_266M>;
+	assigned-clock-rates = <266000000>;
 
 	port@0 {
 		reg = <0>;
 		mipi_csi0_ep: endpoint {
-			remote-endpoint = <&ov5640_mipi_0_ep>;
+			remote-endpoint = <&ov5645_mipi_0_ep>;
 			data-lanes = <2>;
-			csis-hs-settle = <13>;
-			csis-clk-settle = <2>;
+			//csis-hs-settle = <13>;
+			//csis-clk-settle = <2>;
+			csis-hs-settle = <5>;
 			csis-wclk;
 		};
 	};
@@ -681,10 +683,11 @@
 	port@1 {
 		reg = <1>;
 		mipi_csi1_ep: endpoint {
-			remote-endpoint = <&ov5640_mipi_1_ep>;
+			remote-endpoint = <&ov5645_mipi_1_ep>;
 			data-lanes = <2>;
-			csis-hs-settle = <13>;
-			csis-clk-settle = <2>;
+			//csis-hs-settle = <13>;
+			//csis-clk-settle = <2>;
+			csis-hs-settle = <5>;
 			csis-wclk;
 		};
 	};
@@ -964,7 +967,8 @@
 		fsl,pins = <
 			MX8MP_IOMUXC_NAND_CE0_B__GPIO3_IO01				0x16 // CSI1_RST: Fast slew rate, drivestrength x6
 			MX8MP_IOMUXC_NAND_DATA01__GPIO3_IO07			0x16 // CSI1_PWDN: Fast slew rate, drivestrength x6
-			MX8MP_IOMUXC_NAND_DQS__GPIO3_IO14				0x146 // CSI0_MCLK_EN: weak pullup enabled, drivestrength x6
+			MX8MP_IOMUXC_NAND_DQS__GPIO3_IO14				0x16 // CSI0_MCLK_EN: Fast slew rate, drivestrength x6
+			//MX8MP_IOMUXC_NAND_DQS__GPIO3_IO14				0x146 // CSI0_MCLK_EN: weak pullup enabled, drivestrength x6
 		>;
 	};
 
@@ -972,8 +976,8 @@
 		fsl,pins = <
 			MX8MP_IOMUXC_NAND_DATA00__GPIO3_IO06			0x16 // CSI2_RST: Fast slew rate, drivestrength x6
 			MX8MP_IOMUXC_NAND_DATA03__GPIO3_IO09			0x16 // CSI2_PWDN: Fast slew rate, drivestrength x6
-			MX8MP_IOMUXC_NAND_DATA02__GPIO3_IO08			0x146 // CSI0_MCLK_EN: weak pullup enabled, drivestrength x6
-
+			MX8MP_IOMUXC_NAND_DATA02__GPIO3_IO08			0x16 // CSI0_MCLK_EN: Fast slew rate, drivestrength x6
+			//MX8MP_IOMUXC_NAND_DATA02__GPIO3_IO08			0x146 // CSI0_MCLK_EN: weak pullup enabled, drivestrength x6
 		>;
 	};
 

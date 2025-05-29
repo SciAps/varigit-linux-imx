@@ -34,8 +34,11 @@
 #include <media/v4l2-event.h>
 #include <media/v4l2-fwnode.h>
 #include <media/v4l2-subdev.h>
+#include "ov5645-af.h"
 
 #define AD_DEV_DBG dev_dbg
+
+#define OV5645_SENSOR_ID 0x5645
 
 #define OV5645_SYSTEM_CTRL0		0x3008
 #define		OV5645_SYSTEM_CTRL0_START	0x02
@@ -145,6 +148,10 @@ struct ov5645 {
 
 	struct gpio_desc *enable_gpio;
 	struct gpio_desc *rst_gpio;
+	struct gpio_desc *mclk_enable_gpio;
+
+	u8 auto_focus;
+	u8 external_power_supplies;
 
 	bool pending_mode_change;
 	bool streaming;
@@ -156,8 +163,8 @@ static inline struct ov5645 *to_ov5645(struct v4l2_subdev *sd)
 }
 
 static const struct reg_value ov5645_global_init_setting[] = {
-	{ 0x3103, 0x11 },
-	{ 0x3008, 0x82 },
+	//{ 0x3103, 0x11 },
+	//{ 0x3008, 0x82 },
 	{ 0x3008, 0x42 },
 	{ 0x3103, 0x03 },
 	{ 0x3503, 0x07 },
@@ -402,8 +409,10 @@ static const struct reg_value ov5645_setting_sxga[] = {
 	{ 0x3614, 0x50 },
 	{ 0x3618, 0x00 },
 	{ 0x3034, 0x18 },
-	{ 0x3035, 0x21 },
-	{ 0x3036, 0x70 },
+	{ 0x3035, 0x11 },
+	{ 0x3036, 0x54 },
+	//{ 0x3035, 0x21 },
+	//{ 0x3036, 0x70 },
 	{ 0x3600, 0x09 },
 	{ 0x3601, 0x43 },
 	{ 0x3708, 0x66 },
@@ -683,24 +692,34 @@ static int ov5645_set_register_array(struct ov5645 *ov5645,
 
 static int ov5645_set_power_on(struct ov5645 *ov5645)
 {
-	int ret;
+	if (!ov5645->external_power_supplies) {
+		int ret;
+		ret = regulator_bulk_enable(OV5645_NUM_SUPPLIES, ov5645->supplies);
+		if (ret < 0)
+			return ret;
+	}
 
-	ret = regulator_bulk_enable(OV5645_NUM_SUPPLIES, ov5645->supplies);
-	if (ret < 0)
-		return ret;
+	if (!IS_ERR_OR_NULL(ov5645->xclk)) {
+		int ret;
+		ret = clk_prepare_enable(ov5645->xclk);
+		if (ret < 0) {
+			dev_err(ov5645->dev, "clk prepare enable failed\n");
+			if (!ov5645->external_power_supplies) {
+				regulator_bulk_disable(OV5645_NUM_SUPPLIES, ov5645->supplies);
+			}
+			return ret;
+		}
+	}
 
-	ret = clk_prepare_enable(ov5645->xclk);
-	if (ret < 0) {
-		dev_err(ov5645->dev, "clk prepare enable failed\n");
-		regulator_bulk_disable(OV5645_NUM_SUPPLIES, ov5645->supplies);
-		return ret;
+	if (!IS_ERR_OR_NULL(ov5645->mclk_enable_gpio)) {
+		gpiod_set_value(ov5645->mclk_enable_gpio, 1);
 	}
 
 	usleep_range(5000, 15000);
-	gpiod_set_value_cansleep(ov5645->enable_gpio, 1);
+	gpiod_set_value(ov5645->enable_gpio, 1);
 
 	usleep_range(1000, 2000);
-	gpiod_set_value_cansleep(ov5645->rst_gpio, 0);
+	gpiod_set_value(ov5645->rst_gpio, 0);
 
 	msleep(20);
 
@@ -709,10 +728,18 @@ static int ov5645_set_power_on(struct ov5645 *ov5645)
 
 static void ov5645_set_power_off(struct ov5645 *ov5645)
 {
-	gpiod_set_value_cansleep(ov5645->rst_gpio, 1);
-	gpiod_set_value_cansleep(ov5645->enable_gpio, 0);
-	clk_disable_unprepare(ov5645->xclk);
-	regulator_bulk_disable(OV5645_NUM_SUPPLIES, ov5645->supplies);
+	gpiod_set_value(ov5645->rst_gpio, 1);
+	gpiod_set_value(ov5645->enable_gpio, 0);
+
+	if (!IS_ERR_OR_NULL(ov5645->mclk_enable_gpio)) {
+		gpiod_set_value(ov5645->mclk_enable_gpio, 0);
+	}
+	if (!IS_ERR_OR_NULL(ov5645->xclk)) {
+		clk_disable_unprepare(ov5645->xclk);
+	}
+	if (!ov5645->external_power_supplies) {
+		regulator_bulk_disable(OV5645_NUM_SUPPLIES, ov5645->supplies);
+	}
 }
 
 static int ov5645_s_power(struct v4l2_subdev *sd, int on)
@@ -730,6 +757,19 @@ static int ov5645_s_power(struct v4l2_subdev *sd, int on)
 			ret = ov5645_set_power_on(ov5645);
 			if (ret < 0)
 				goto exit;
+
+			if (ov5645->auto_focus) {
+				if (ov5645_af_check_sensor_id(ov5645->i2c_client, OV5645_SENSOR_ID, true)) {
+					ov5645_af_init(ov5645->i2c_client, true);
+				}
+				else {
+					ov5645->auto_focus = 0;
+				}
+			}
+			else {
+				ov5645_write_reg(ov5645, 0x3103, 0x11);
+				ov5645_write_reg(ov5645, 0x3008, 0x82);
+			}
 
 			ret = ov5645_set_register_array(ov5645,
 					ov5645_global_init_setting,
@@ -876,31 +916,37 @@ static int ov5645_s_ctrl(struct v4l2_ctrl *ctrl)
 		return 0;
 	}
 
-	AD_DEV_DBG(ov5645->dev, "%s: ctrl->id: %d - %d - %d - %d - %d\n", __func__, ctrl->id
-			, V4L2_CID_SATURATION, V4L2_CID_AUTO_WHITE_BALANCE, V4L2_CID_AUTOGAIN, V4L2_CID_EXPOSURE_AUTO);
 	switch (ctrl->id) {
 	case V4L2_CID_SATURATION:
+		AD_DEV_DBG(ov5645->dev, "%s: V4L2_CID_SATURATION(%d) is %d\n", __func__, ctrl->id, ctrl->val);
 		ret = ov5645_set_saturation(ov5645, ctrl->val);
 		break;
 	case V4L2_CID_AUTO_WHITE_BALANCE:
+		AD_DEV_DBG(ov5645->dev, "%s: V4L2_CID_AUTO_WHITE_BALANCE(%d) is %d\n", __func__, ctrl->id, ctrl->val);
 		ret = ov5645_set_awb(ov5645, ctrl->val);
 		break;
 	case V4L2_CID_AUTOGAIN:
+		AD_DEV_DBG(ov5645->dev, "%s: V4L2_CID_AUTOGAIN(%d) is %d\n", __func__, ctrl->id, ctrl->val);
 		ret = ov5645_set_agc_mode(ov5645, ctrl->val);
 		break;
 	case V4L2_CID_EXPOSURE_AUTO:
+		AD_DEV_DBG(ov5645->dev, "%s: V4L2_CID_EXPOSURE_AUTO(%d) is %d\n", __func__, ctrl->id, ctrl->val);
 		ret = ov5645_set_aec_mode(ov5645, ctrl->val);
 		break;
 	case V4L2_CID_TEST_PATTERN:
+		AD_DEV_DBG(ov5645->dev, "%s: V4L2_CID_TEST_PATTERN(%d) is %d\n", __func__, ctrl->id, ctrl->val);
 		ret = ov5645_set_test_pattern(ov5645, ctrl->val);
 		break;
 	case V4L2_CID_HFLIP:
+		AD_DEV_DBG(ov5645->dev, "%s: V4L2_CID_HFLIP(%d) is %d\n", __func__, ctrl->id, ctrl->val);
 		ret = ov5645_set_hflip(ov5645, ctrl->val);
 		break;
 	case V4L2_CID_VFLIP:
+		AD_DEV_DBG(ov5645->dev, "%s: V4L2_CID_VFLIP(%d) is %d\n", __func__, ctrl->id, ctrl->val);
 		ret = ov5645_set_vflip(ov5645, ctrl->val);
 		break;
 	default:
+		AD_DEV_DBG(ov5645->dev, "%s: ???(%d) is %d\n", __func__, ctrl->id, ctrl->val);
 		ret = 0;// -EINVAL;
 		break;
 	}
@@ -1023,15 +1069,12 @@ static int ov5645_set_format(struct v4l2_subdev *sd,
 		AD_DEV_DBG(ov5645->dev, "%s: format->which == V4L2_SUBDEV_FORMAT_ACTIVE\n", __func__);
 		ret = v4l2_ctrl_s_ctrl_int64(ov5645->pixel_clock,
 					     new_mode->pixel_clock);
-		AD_DEV_DBG(ov5645->dev, "%s: after 1 ret: %d\n", __func__, ret);
-
 		if (ret < 0) {
 			return ret;
 		}
 
 		ret = v4l2_ctrl_s_ctrl(ov5645->link_freq,
 				       new_mode->link_freq);
-		AD_DEV_DBG(ov5645->dev, "%s: after 2 ret: %d\n", __func__, ret);
 		if (ret < 0) {
 			return ret;
 		}
@@ -1109,7 +1152,14 @@ static int ov5645_s_stream(struct v4l2_subdev *subdev, int enable)
 				       OV5645_SYSTEM_CTRL0_START);
 		if (ret < 0)
 			return ret;
+
+		if (ov5645->auto_focus) {
+			ov5645_af_constant_focus(ov5645->i2c_client);
+		}
 	} else {
+		if (ov5645->auto_focus) {
+			ov5645_af_pause_focus(ov5645->i2c_client);
+		}
 		ret = ov5645_write_reg(ov5645, OV5645_IO_MIPI_CTRL00, 0x40);
 		if (ret < 0)
 			return ret;
@@ -1400,11 +1450,11 @@ static const struct media_entity_operations ov5645_sd_media_ops = {
 static int ov5645_probe(struct i2c_client *client)
 {
 	struct device *dev = &client->dev;
+	struct device_node *np = client->dev.of_node;
 	struct device_node *endpoint;
 	struct ov5645 *ov5645;
 	u8 chip_id_high, chip_id_low;
 	unsigned int i;
-	u32 xclk_freq;
 	int ret;
 
 	ov5645 = devm_kzalloc(dev, sizeof(struct ov5645), GFP_KERNEL);
@@ -1437,37 +1487,42 @@ static int ov5645_probe(struct i2c_client *client)
 
 	/* get system clock (xclk) */
 	ov5645->xclk = devm_clk_get(dev, "xclk");
-	if (IS_ERR(ov5645->xclk)) {
-		dev_err(dev, "could not get xclk");
-		return PTR_ERR(ov5645->xclk);
+	if (!IS_ERR_OR_NULL(ov5645->xclk)) {
+		u32 xclk_freq;
+		ret = of_property_read_u32(dev->of_node, "clock-frequency", &xclk_freq);
+		if (ret) {
+			dev_err(dev, "could not get xclk frequency\n");
+			return ret;
+		}
+
+		/* external clock must be 24MHz, allow 1% tolerance */
+		if (xclk_freq < 23760000 || xclk_freq > 24240000) {
+			dev_err(dev, "external clock frequency %u is not supported\n",
+				xclk_freq);
+			return -EINVAL;
+		}
+
+		ret = clk_set_rate(ov5645->xclk, xclk_freq);
+		if (ret) {
+			dev_err(dev, "could not set xclk frequency\n");
+			return ret;
+		}
 	}
 
-	ret = of_property_read_u32(dev->of_node, "clock-frequency", &xclk_freq);
-	if (ret) {
-		dev_err(dev, "could not get xclk frequency\n");
-		return ret;
+	if (of_property_read_bool(np, "external-power-supplies"))
+		ov5645->external_power_supplies = 1;
+	else
+		ov5645->external_power_supplies = 0;
+
+	if (!ov5645->external_power_supplies) {
+		for (i = 0; i < OV5645_NUM_SUPPLIES; i++)
+			ov5645->supplies[i].supply = ov5645_supply_name[i];
+
+		ret = devm_regulator_bulk_get(dev, OV5645_NUM_SUPPLIES,
+						  ov5645->supplies);
+		if (ret < 0)
+			return ret;
 	}
-
-	/* external clock must be 24MHz, allow 1% tolerance */
-	if (xclk_freq < 23760000 || xclk_freq > 24240000) {
-		dev_err(dev, "external clock frequency %u is not supported\n",
-			xclk_freq);
-		return -EINVAL;
-	}
-
-	ret = clk_set_rate(ov5645->xclk, xclk_freq);
-	if (ret) {
-		dev_err(dev, "could not set xclk frequency\n");
-		return ret;
-	}
-
-	for (i = 0; i < OV5645_NUM_SUPPLIES; i++)
-		ov5645->supplies[i].supply = ov5645_supply_name[i];
-
-	ret = devm_regulator_bulk_get(dev, OV5645_NUM_SUPPLIES,
-				      ov5645->supplies);
-	if (ret < 0)
-		return ret;
 
 	ov5645->enable_gpio = devm_gpiod_get(dev, "enable", GPIOD_OUT_LOW);
 	if (IS_ERR(ov5645->enable_gpio)) {
@@ -1480,6 +1535,13 @@ static int ov5645_probe(struct i2c_client *client)
 		dev_err(dev, "cannot get reset gpio\n");
 		return PTR_ERR(ov5645->rst_gpio);
 	}
+
+	ov5645->mclk_enable_gpio = devm_gpiod_get(dev, "mclk-enable", GPIOD_OUT_LOW);
+
+	if (of_property_read_bool(np, "auto-focus"))
+		ov5645->auto_focus = 1;
+	else
+		ov5645->auto_focus = 0;
 
 	mutex_init(&ov5645->power_lock);
 

@@ -181,11 +181,14 @@ dtb-$(CONFIG_ARCH_MXC) += imx8mp-var-dart-wbe-dt8mcustomboard-m7.dtb
 
 dtb-$(CONFIG_ARCH_MXC) += imx8mp-var-dart-sciaps-nir-0.x.dtb
 dtb-$(CONFIG_ARCH_MXC) += imx8mp-var-dart-sciaps-nir.dtb
+dtb-$(CONFIG_ARCH_MXC) += imx8mp-var-dart-sciaps-ngx.dtb
 
 imx8mp-var-dart-1.x-sciaps-nir-0.x-dtbs := imx8mp-var-dart-sciaps-nir-0.x.dtb imx8mp-var-dart-1.x.dtbo
 imx8mp-var-dart-1.x-sciaps-nir-dtbs := imx8mp-var-dart-sciaps-nir.dtb imx8mp-var-dart-1.x.dtbo
+imx8mp-var-dart-1.x-sciaps-ngx-dtbs := imx8mp-var-dart-sciaps-ngx.dtb imx8mp-var-dart-1.x.dtbo
 
 dtb-$(CONFIG_ARCH_MXC) += imx8mp-var-dart-1.x-sciaps-nir.dtb
+dtb-$(CONFIG_ARCH_MXC) += imx8mp-var-dart-1.x-sciaps-ngx.dtb
 
 dtb-$(CONFIG_ARCH_MXC) += imx8mp-var-som-symphony.dtb
 dtb-$(CONFIG_ARCH_MXC) += imx8mp-var-som-symphony-2nd-ov5640-m7.dtb

@@ -81,6 +81,7 @@
 enum ov5645_frame_rate {
 	OV5645_15_FPS = 0,
 	OV5645_30_FPS,
+	OV5645_45_FPS,
 	OV5645_60_FPS,
 	OV5645_NUM_FRAMERATES,
 };
@@ -88,6 +89,7 @@ enum ov5645_frame_rate {
 static const int ov5645_framerates[] = {
 	[OV5645_15_FPS] = 15,
 	[OV5645_30_FPS] = 30,
+	[OV5645_45_FPS] = 30,
 	[OV5645_60_FPS] = 60,
 };
 
@@ -567,16 +569,20 @@ static const struct ov5645_mode_info ov5645_mode_info_data[] = {
 	{
 		.width = 1280,
 		.height = 960,
+		//.width = 960,
+		//.height = 1280,
 		.data = ov5645_setting_sxga,
 		.data_size = ARRAY_SIZE(ov5645_setting_sxga),
 		.pixel_clock = 12000000, //112000000,
 		.link_freq = 2,//0, /* an index in link_freq[] */
-		.max_fps	= OV5645_30_FPS,
-		.def_fps	= OV5645_30_FPS
+		.max_fps	= OV5645_45_FPS,
+		.def_fps	= OV5645_45_FPS
 	},
 	{
 		.width = 1920,
 		.height = 1080,
+		//.width = 1080,
+		//.height = 1920,
 		.data = ov5645_setting_1080p,
 		.data_size = ARRAY_SIZE(ov5645_setting_1080p),
 		.pixel_clock = 12000000,//168000000,
@@ -587,12 +593,14 @@ static const struct ov5645_mode_info ov5645_mode_info_data[] = {
 	{
 		.width = 2592,
 		.height = 1944,
+		//.width = 1944,
+		//.height = 2592,
 		.data = ov5645_setting_full,
 		.data_size = ARRAY_SIZE(ov5645_setting_full),
 		.pixel_clock = 12000000,//168000000,
 		.link_freq = 2,//1, /* an index in link_freq[] */
-		.max_fps	= OV5645_30_FPS,
-		.def_fps	= OV5645_30_FPS
+		.max_fps	= OV5645_15_FPS,
+		.def_fps	= OV5645_15_FPS
 	},
 };
 
@@ -1101,8 +1109,8 @@ static int ov5645_entity_init_cfg(struct v4l2_subdev *subdev,
 	struct v4l2_subdev_format fmt = { 0 };
 
 	fmt.which = sd_state ? V4L2_SUBDEV_FORMAT_TRY : V4L2_SUBDEV_FORMAT_ACTIVE;
-	fmt.format.width = 1920;
-	fmt.format.height = 1080;
+	fmt.format.width = 1920;//1080;//1920;
+	fmt.format.height = 1080;//1920;//1080;
 
 	ov5645_set_format(subdev, sd_state, &fmt);
 

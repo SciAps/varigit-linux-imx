@@ -77,16 +77,16 @@
 #define OV5640_PIXEL_ARRAY_HEIGHT	1944
 
 enum ov7695_frame_rate {
-	OV7695_15_FPS = 0,
-	OV7695_30_FPS,
+	OV7695_30_FPS = 0,
 	OV7695_60_FPS,
+	OV7695_120_FPS,
 	OV7695_NUM_FRAMERATES,
 };
 
 static const int ov7695_framerates[] = {
-	[OV7695_15_FPS] = 15,
 	[OV7695_30_FPS] = 30,
 	[OV7695_60_FPS] = 60,
+	[OV7695_120_FPS] = 120,
 };
 
 /* regulator supplies */
@@ -722,6 +722,8 @@ static const struct ov7695_mode_info ov7695_mode_info_data[] = {
 	{
 		.width = 640,
 		.height = 480,
+		//.width = 480,
+		//.height = 640,
 		.data = ov7695_setting_vga,
 		.data_size = ARRAY_SIZE(ov7695_setting_vga),
 		.pixel_clock = 12000000, //112000000,
@@ -729,38 +731,30 @@ static const struct ov7695_mode_info ov7695_mode_info_data[] = {
 		.max_fps	= OV7695_30_FPS,
 		.def_fps	= OV7695_30_FPS
 	},
-#if 0
 	{
-		.width = 1280,
-		.height = 960,
-		.data = ov7695_setting_sxga,
-		.data_size = ARRAY_SIZE(ov7695_setting_sxga),
+		.width = 640,
+		.height = 480,
+		//.width = 480,
+		//.height = 640,
+		.data = ov7695_setting_vga,
+		.data_size = ARRAY_SIZE(ov7695_setting_vga),
 		.pixel_clock = 12000000, //112000000,
 		.link_freq = 2,//0, /* an index in link_freq[] */
 		.max_fps	= OV7695_30_FPS,
 		.def_fps	= OV7695_30_FPS
 	},
 	{
-		.width = 1920,
-		.height = 1080,
-		.data = ov7695_setting_1080p,
-		.data_size = ARRAY_SIZE(ov7695_setting_1080p),
-		.pixel_clock = 12000000,//168000000,
-		.link_freq = 2, //1, /* an index in link_freq[] */
+		.width = 640,
+		.height = 480,
+		//.width = 480,
+		//.height = 640,
+		.data = ov7695_setting_vga,
+		.data_size = ARRAY_SIZE(ov7695_setting_vga),
+		.pixel_clock = 12000000, //112000000,
+		.link_freq = 2,//0, /* an index in link_freq[] */
 		.max_fps	= OV7695_30_FPS,
 		.def_fps	= OV7695_30_FPS
 	},
-	{
-		.width = 2592,
-		.height = 1944,
-		.data = ov7695_setting_full,
-		.data_size = ARRAY_SIZE(ov7695_setting_full),
-		.pixel_clock = 12000000,//168000000,
-		.link_freq = 2,//1, /* an index in link_freq[] */
-		.max_fps	= OV7695_30_FPS,
-		.def_fps	= OV7695_30_FPS
-	},
-#endif
 };
 
 static int ov7695_write_reg(struct ov7695 *ov7695, u16 reg, u8 val)
@@ -1260,8 +1254,8 @@ static int ov7695_entity_init_cfg(struct v4l2_subdev *subdev,
 	struct v4l2_subdev_format fmt = { 0 };
 
 	fmt.which = sd_state ? V4L2_SUBDEV_FORMAT_TRY : V4L2_SUBDEV_FORMAT_ACTIVE;
-	fmt.format.width = 1920;
-	fmt.format.height = 1080;
+	fmt.format.width = 1920;//480;//1920;
+	fmt.format.height = 1080;//640;//1080;
 
 	ov7695_set_format(subdev, sd_state, &fmt);
 
@@ -1349,7 +1343,7 @@ static int ov7695_try_frame_interval(struct ov7695 *sensor,
 				     u32 width, u32 height)
 {
 	const struct ov7695_mode_info *mode;
-	enum ov7695_frame_rate rate = OV7695_15_FPS;
+	enum ov7695_frame_rate rate = OV7695_30_FPS;
 	int minfps, maxfps, best_fps, fps;
 	int i;
 
@@ -1357,7 +1351,7 @@ static int ov7695_try_frame_interval(struct ov7695 *sensor,
 	if (!mode)
 		return -EINVAL;
 
-	minfps = ov7695_framerates[OV7695_15_FPS];
+	minfps = ov7695_framerates[OV7695_30_FPS];
 	maxfps = ov7695_framerates[mode->max_fps];
 
 	if (fi->numerator == 0) {

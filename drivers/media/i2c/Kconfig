@@ -476,6 +476,20 @@ config VIDEO_OV5645
 	  To compile this driver as a module, choose M here: the
 	  module will be called ov5645.
 
+config VIDEO_OV7695
+	tristate "OmniVision OV7695 sensor support"
+	depends on OF
+	depends on I2C && VIDEO_DEV
+	select MEDIA_CONTROLLER
+	select VIDEO_V4L2_SUBDEV_API
+	select V4L2_FWNODE
+	help
+	  This is a Video4Linux2 sensor driver for the OmniVision
+	  OV7695 camera.
+
+	  To compile this driver as a module, choose M here: the
+	  module will be called ov7695.
+
 config VIDEO_OV5647
 	tristate "OmniVision OV5647 sensor support"
 	depends on I2C && VIDEO_DEV

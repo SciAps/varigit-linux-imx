@@ -238,7 +238,7 @@
 		port {
 			ov7695_mipi_1_ep: endpoint {
 				remote-endpoint = <&mipi_csi1_ep>;
-				data-lanes = <1 2>;
+				data-lanes = <1>;
 				clock-lanes = <0>;
 			};
 		};
@@ -679,12 +679,15 @@
 	#address-cells = <1>;
 	#size-cells = <0>;
 	status = "okay";
+	clock-frequency = <266000000>;
+	assigned-clock-parents = <&clk IMX8MP_SYS_PLL1_266M>;
+	assigned-clock-rates = <266000000>;
 
 	port@1 {
 		reg = <1>;
 		mipi_csi1_ep: endpoint {
 			remote-endpoint = <&ov7695_mipi_1_ep>;
-			data-lanes = <2>;
+			data-lanes = <1>;
 			//csis-hs-settle = <13>;
 			//csis-clk-settle = <2>;
 			csis-hs-settle = <5>;

@@ -89,7 +89,7 @@ enum ov5645_frame_rate {
 static const int ov5645_framerates[] = {
 	[OV5645_15_FPS] = 15,
 	[OV5645_30_FPS] = 30,
-	[OV5645_45_FPS] = 30,
+	[OV5645_45_FPS] = 45,
 	[OV5645_60_FPS] = 60,
 };
 

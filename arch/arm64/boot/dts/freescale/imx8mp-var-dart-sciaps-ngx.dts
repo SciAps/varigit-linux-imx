@@ -11,7 +11,8 @@
 	model = "SciAps NIR rev. 3 (version 0.1) based on Variscite DART-MX8M-PLUS";
 	chosen {
 		stdout-path = &uart1;
-		bootargs-append = "androidboot.primary_display=imx-drm moal.mod_para=wifi_mod_para_sd8987.conf";
+		//bootargs-append = "androidboot.primary_display=imx-drm moal.mod_para=wifi_mod_para_sd8987.conf";
+		bootargs-append = "console=ttymxc0,115200 earlycon=ec_imx6q,0x30860000,1/15200 androidboot.console=ttymxc0 androidboot.primary_display=imx-drm moal.mod_para=wifi_mod_para_sd8987.conf";
 	};
 
 	gpio-keys {
@@ -556,6 +557,7 @@
 &pcie_ep {
 	ext_osc = <1>;
 	clocks = <&clk IMX8MP_CLK_HSIO_ROOT>,
+
 		 <&clk IMX8MP_CLK_PCIE_AUX>,
 		 <&clk IMX8MP_CLK_HSIO_AXI>,
 		 <&clk IMX8MP_CLK_PCIE_ROOT>;
@@ -658,18 +660,14 @@
 	#address-cells = <1>;
 	#size-cells = <0>;
 	status = "okay";
-	clock-frequency = <266000000>;
-	assigned-clock-parents = <&clk IMX8MP_SYS_PLL1_266M>;
-	assigned-clock-rates = <266000000>;
 
 	port@0 {
 		reg = <0>;
 		mipi_csi0_ep: endpoint {
 			remote-endpoint = <&ov5645_mipi_0_ep>;
 			data-lanes = <2>;
-			//csis-hs-settle = <13>;
-			//csis-clk-settle = <2>;
-			csis-hs-settle = <5>;
+			csis-clk-settle = <0>;
+			csis-hs-settle = <9>;
 			csis-wclk;
 		};
 	};
@@ -679,9 +677,6 @@
 	#address-cells = <1>;
 	#size-cells = <0>;
 	status = "okay";
-	clock-frequency = <266000000>;
-	assigned-clock-parents = <&clk IMX8MP_SYS_PLL1_266M>;
-	assigned-clock-rates = <266000000>;
 
 	port@1 {
 		reg = <1>;

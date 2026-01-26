@@ -11,7 +11,7 @@
 	model = "SciAps NIR rev. 3 (version 0.1) based on Variscite DART-MX8M-PLUS";
 	chosen {
 		stdout-path = &uart1;
-		bootargs-append = "androidboot.primary_display=imx-drm androidboot.camera.layout=dual-ov5645 moal.mod_para=wifi_mod_para_sd8987.conf";
+		bootargs-append = "androidboot.primary_display=imx-drm androidboot.sciaps.camera.layout=dual-ov5645 moal.mod_para=wifi_mod_para_sd8987.conf";
 	};
 
 	gpio-keys {

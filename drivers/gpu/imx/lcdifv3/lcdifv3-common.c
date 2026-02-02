@@ -62,6 +62,8 @@ struct lcdifv3_soc {
 	u32 thres_low_div;
 	u32 thres_high_mul;
 	u32 thres_high_div;
+
+	int32_t line_pattern_swap;
 };
 
 struct lcdifv3_soc_pdata {
@@ -320,6 +322,8 @@ void lcdifv3_set_bus_fmt(struct lcdifv3_soc *lcdifv3, u32 bus_format)
 {
 	uint32_t disp_para = 0;
 
+	dev_info(lcdifv3->dev, "%s: bus format: %#x\n", __func__, bus_format);
+
 	disp_para = readl(lcdifv3->base + LCDIFV3_DISP_PARA);
 
 	/* clear line pattern bits */
@@ -330,10 +334,13 @@ void lcdifv3_set_bus_fmt(struct lcdifv3_soc *lcdifv3, u32 bus_format)
 		disp_para |= DISP_PARA_LINE_PATTERN(LP_RGB565);
 		break;
 	case MEDIA_BUS_FMT_RGB888_1X24:
-		disp_para |= DISP_PARA_LINE_PATTERN(LP_RGB888_OR_YUV444);
+		if (lcdifv3->line_pattern_swap >= 0)
+			disp_para |= DISP_PARA_LINE_PATTERN(lcdifv3->line_pattern_swap);
+		else
+			disp_para |= DISP_PARA_LINE_PATTERN(LP_RGB888_OR_YUV444);
 		break;
 	default:
-		dev_err(lcdifv3->dev, "unknown bus format: %#x\n", bus_format);
+		dev_err(lcdifv3->dev, "%s: unknown bus format: %#x\n", __func__, bus_format);
 		return;
 	}
 
@@ -667,8 +674,9 @@ static int imx_lcdifv3_probe(struct platform_device *pdev)
 	struct resource *res;
 	struct device_node *sp;
 	struct platform_device * pd;
+	const char *data;
 
-	dev_dbg(dev, "%s: probe begin\n", __func__);
+	dev_dbg(dev, "%s: /probe begin\n", __func__);
 
 	lcdifv3 = devm_kzalloc(dev, sizeof(*lcdifv3), GFP_KERNEL);
 	if (!lcdifv3) {
@@ -692,6 +700,27 @@ static int imx_lcdifv3_probe(struct platform_device *pdev)
 		} else
 			dev_err(&pdev->dev, "lcdif: failed to find trusty node. Use normal mode.\n");
 	}
+
+	lcdifv3->line_pattern_swap = -1;
+	data = of_get_property(np, "swap-line-pattern", NULL);
+	dev_info(&pdev->dev, "---AD---> lcdif: after getting swap-line-pattern... \n");
+    if (data) {
+		dev_info(&pdev->dev, "---AD---> lcdif: data: %s \n", data);
+        if (!strcmp(data, "LP_RGB888_OR_YUV444"))
+            lcdifv3->line_pattern_swap = LP_RGB888_OR_YUV444;
+		else if (!strcmp(data, "LP_RBG888"))
+            lcdifv3->line_pattern_swap = LP_RBG888;
+		else if (!strcmp(data, "LP_GBR888"))
+            lcdifv3->line_pattern_swap = LP_GBR888;
+		else if (!strcmp(data, "LP_GRB888_OR_UYV444"))
+            lcdifv3->line_pattern_swap = LP_GRB888_OR_UYV444;
+		else if (!strcmp(data, "LP_BRG888"))
+            lcdifv3->line_pattern_swap = LP_BRG888;
+		else if (!strcmp(data, "LP_BGR888"))
+            lcdifv3->line_pattern_swap = LP_BGR888;
+    }
+
+	dev_info(&pdev->dev, "---AD---> lcdif: lcdifv3->line_pattern_swap: %d \n", lcdifv3->line_pattern_swap);
 
 	res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
 	if (!res)

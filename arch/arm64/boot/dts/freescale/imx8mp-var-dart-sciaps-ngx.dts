@@ -497,6 +497,7 @@
 
 /* MIPI-DSI */
 &lcdif1 {
+	swap-line-pattern = "LP_BGR888";
 	status = "okay";
 };
 
@@ -520,15 +521,33 @@
 	status = "disabled";
 };
 
+
+//&mipi_dsi {
+//	status = "okay";
+//	panel@0 {
+//		compatible = "ortus,com35h3n82ulc";
+//		backlight = <&backlight>;
+//		reg = <0>;
+//		pinctrl-0 = <&pinctrl_mipi_dsi_reset>;
+//		reset-gpios = <&gpio1 6 GPIO_ACTIVE_LOW>;
+//		dsi-lanes = <2>;
+//		video-mode = <2>;	/* 0: burst mode
+//					 * 1: non-burst mode with sync event
+//					 * 2: non-burst mode with sync pulse
+//					 */
+//		status = "okay";
+//	};
+//};
+
 &mipi_dsi {
 	status = "okay";
 	panel@0 {
-		compatible = "ortus,com35h3n82ulc";
+		compatible = "ortus,com27h2p37ulc-citrobits";
 		backlight = <&backlight>;
 		reg = <0>;
 		pinctrl-0 = <&pinctrl_mipi_dsi_reset>;
 		reset-gpios = <&gpio1 6 GPIO_ACTIVE_LOW>;
-		dsi-lanes = <2>;
+		dsi-lanes = <1>;
 		video-mode = <2>;	/* 0: burst mode
 					 * 1: non-burst mode with sync event
 					 * 2: non-burst mode with sync pulse

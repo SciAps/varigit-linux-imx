@@ -703,9 +703,9 @@ static int imx_lcdifv3_probe(struct platform_device *pdev)
 
 	lcdifv3->line_pattern_swap = -1;
 	data = of_get_property(np, "swap-line-pattern", NULL);
-	dev_info(&pdev->dev, "---AD---> lcdif: after getting swap-line-pattern... \n");
+	dev_info(&pdev->dev, "lcdif: after getting swap-line-pattern... \n");
     if (data) {
-		dev_info(&pdev->dev, "---AD---> lcdif: data: %s \n", data);
+		dev_info(&pdev->dev, "lcdif: data: %s \n", data);
         if (!strcmp(data, "LP_RGB888_OR_YUV444"))
             lcdifv3->line_pattern_swap = LP_RGB888_OR_YUV444;
 		else if (!strcmp(data, "LP_RBG888"))
@@ -720,7 +720,7 @@ static int imx_lcdifv3_probe(struct platform_device *pdev)
             lcdifv3->line_pattern_swap = LP_BGR888;
     }
 
-	dev_info(&pdev->dev, "---AD---> lcdif: lcdifv3->line_pattern_swap: %d \n", lcdifv3->line_pattern_swap);
+	dev_info(&pdev->dev, "lcdif: lcdifv3->line_pattern_swap: %d \n", lcdifv3->line_pattern_swap);
 
 	res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
 	if (!res)

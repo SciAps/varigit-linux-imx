@@ -522,6 +522,8 @@
 };
 
 &mipi_dsi {
+	assigned-clock-parents = <&clk IMX8MP_CLK_24M>;
+	assigned-clock-rates = <24000000>;
 	status = "okay";
 	panel@0 {
 		compatible = "ortus,com27h2p37ulc-citrobits";

@@ -378,6 +378,10 @@ static const struct dsim_hblank_par hblank_2lanes[] = {
 	{ DSIM_HBLANK_PARAM("640x480"  , 60,  18,  66, 138, 2), },
 };
 
+static const struct dsim_hblank_par hblank_1lanes[] = {
+	{ DSIM_HBLANK_PARAM("240x320"  , 60,  17,  10, 20, 1), },
+};
+
 static const struct dsim_hblank_par *sec_mipi_dsim_get_hblank_par(const char *name,
 								  int vrefresh,
 								  int lanes)
@@ -389,6 +393,10 @@ static const struct dsim_hblank_par *sec_mipi_dsim_get_hblank_par(const char *na
 		return NULL;
 
 	switch (lanes) {
+	case 1:
+		hblank = hblank_1lanes;
+		size   = ARRAY_SIZE(hblank_1lanes);
+		break;
 	case 2:
 		hblank = hblank_2lanes;
 		size   = ARRAY_SIZE(hblank_2lanes);

@@ -418,6 +418,8 @@ static const struct dsim_hblank_par *sec_mipi_dsim_get_hblank_par(const char *na
 			if (vrefresh != hpar->vrefresh)
 				continue;
 
+			pr_info("%s: hpar found for mode %s\n", __func__, name);
+
 			/* found */
 			return hpar;
 		}
@@ -930,6 +932,8 @@ static void sec_mipi_dsim_set_main_mode(struct sec_mipi_dsim *dsim)
 		 MSYNC_SET_MAINHSA(hsa_wc);
 
 	dsim_write(dsim, msync, DSIM_MSYNC);
+
+	dev_info(dsim->dev, "%s: hfp_wc %u hbp_wc %u hsa_wc %u\n", __func__, hfp_wc, hbp_wc, hsa_wc);
 }
 
 static void sec_mipi_dsim_config_dpi(struct sec_mipi_dsim *dsim)

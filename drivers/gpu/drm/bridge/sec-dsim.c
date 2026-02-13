@@ -267,7 +267,6 @@
 
 #define MIPI_FIFO_TIMEOUT	msecs_to_jiffies(250)
 
-#define MIPI_xxx_PKT_OVERHEAD_USE	0
 #define MIPI_HFP_PKT_OVERHEAD	6
 #define MIPI_HBP_PKT_OVERHEAD	6
 #define MIPI_HSA_PKT_OVERHEAD	6
@@ -380,7 +379,7 @@ static const struct dsim_hblank_par hblank_2lanes[] = {
 };
 
 static const struct dsim_hblank_par hblank_1lanes[] = {
-	{ DSIM_HBLANK_PARAM("-240x320-"  , 60,  17,  10, 20, 1), },
+	{ DSIM_HBLANK_PARAM("240x320"  , 60,  17,  10, 20, 1), },
 };
 
 static const struct dsim_hblank_par *sec_mipi_dsim_get_hblank_par(const char *name,
@@ -418,8 +417,6 @@ static const struct dsim_hblank_par *sec_mipi_dsim_get_hblank_par(const char *na
 		if (!strcmp(name, hpar->name)) {
 			if (vrefresh != hpar->vrefresh)
 				continue;
-			pr_info("%s: hpar found for mode %s\n", __func__,
-		       name);
 
 			/* found */
 			return hpar;
@@ -904,11 +901,11 @@ static void sec_mipi_dsim_set_main_mode(struct sec_mipi_dsim *dsim)
 	if (!dsim->hpar) {
 		wc = DIV_ROUND_UP(vmode->hfront_porch * (bpp >> 3),
 				  dsim->lanes);
-		hfp_wc = (MIPI_xxx_PKT_OVERHEAD_USE && wc > MIPI_HFP_PKT_OVERHEAD) ?
+		hfp_wc = wc > MIPI_HFP_PKT_OVERHEAD ?
 			 wc - MIPI_HFP_PKT_OVERHEAD : vmode->hfront_porch;
 		wc = DIV_ROUND_UP(vmode->hback_porch * (bpp >> 3),
 				  dsim->lanes);
-		hbp_wc = (MIPI_xxx_PKT_OVERHEAD_USE && wc > MIPI_HBP_PKT_OVERHEAD) ?
+		hbp_wc = wc > MIPI_HBP_PKT_OVERHEAD ?
 			 wc - MIPI_HBP_PKT_OVERHEAD : vmode->hback_porch;
 	} else {
 		hfp_wc = dsim->hpar->hfp_wc;
@@ -924,7 +921,7 @@ static void sec_mipi_dsim_set_main_mode(struct sec_mipi_dsim *dsim)
 	if (!dsim->hpar) {
 		wc = DIV_ROUND_UP(vmode->hsync_len * (bpp >> 3),
 				  dsim->lanes);
-		hsa_wc = (MIPI_xxx_PKT_OVERHEAD_USE && wc > MIPI_HSA_PKT_OVERHEAD) ?
+		hsa_wc = wc > MIPI_HSA_PKT_OVERHEAD ?
 			 wc - MIPI_HSA_PKT_OVERHEAD : vmode->hsync_len;
 	} else
 		hsa_wc = dsim->hpar->hsa_wc;
@@ -933,7 +930,6 @@ static void sec_mipi_dsim_set_main_mode(struct sec_mipi_dsim *dsim)
 		 MSYNC_SET_MAINHSA(hsa_wc);
 
 	dsim_write(dsim, msync, DSIM_MSYNC);
-	dev_info(dsim->dev, "%s: hfp_wc %u hbp_wc %u hsa_wc %u\n", __func__, hfp_wc, hbp_wc, hsa_wc);
 }
 
 static void sec_mipi_dsim_config_dpi(struct sec_mipi_dsim *dsim)

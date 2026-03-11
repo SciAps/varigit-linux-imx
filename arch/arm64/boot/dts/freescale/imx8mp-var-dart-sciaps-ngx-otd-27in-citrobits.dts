@@ -11,8 +11,8 @@
 	model = "SciAps NGX rev. 3 (version 0.1) based on Variscite DART-MX8M-PLUS - OTD(Citrobits) 2.7in Display";
 	chosen {
 		stdout-path = &uart1;
-		//bootargs-append = "androidboot.primary_display=imx-drm androidboot.camera.layout=ov5645-ov7695 moal.mod_para=wifi_mod_para_sd8987.conf";
-		bootargs-append = "console=ttymxc0,115200 earlycon=ec_imx6q,0x30860000,1/15200 androidboot.console=ttymxc0 androidboot.primary_display=imx-drm androidboot.sciaps.camera.layout=ov5645-ov7695 androidboot.sciaps.lcd_density=120 moal.mod_para=wifi_mod_para_sd8987.conf";
+		//console=ttymxc0,115200 earlycon=ec_imx6q,0x30860000,1/15200 androidboot.console=ttymxc0
+		bootargs-append = "androidboot.primary_display=imx-drm androidboot.sciaps.camera.layout=ov5645-ov7695 androidboot.sciaps.lcd_density=120 moal.mod_para=wifi_mod_para_sd8987.conf";
 	};
 
 	gpio-keys {
@@ -104,7 +104,7 @@
 
 	backlight: backlight {
 		compatible = "pwm-backlight";
-		pwms = <&pwm1 0 5000000 0>;
+		pwms = <&pwm1 0 33000 0>;
 		status = "okay";
 
 		brightness-levels = < 0  1  2  3  4  5  6  7  8  9

@@ -755,7 +755,7 @@
 		pinctrl-names = "default";
 		pinctrl-0 = <&pinctrl_brcm_spect_gpios>;
 		enable-gpios = <&gpio4 22 GPIO_ACTIVE_HIGH>;  //It is actually DPP_nUART_SPI
-		cs-gpios = <&gpio1 17 GPIO_ACTIVE_LOW>, <&gpio4 24 GPIO_ACTIVE_LOW>,  <&gpio4 23 GPIO_ACTIVE_LOW>;    //GPIO117/CS_GPIO, DPP_UART_SEL_nPROG, SOM_DPP_JTAG_EN
+		cs-gpios = <&gpio1 17 GPIO_ACTIVE_LOW>, <&gpio4 23 GPIO_ACTIVE_HIGH>,  <&gpio4 24 GPIO_ACTIVE_LOW>;    //GPIO117/CS_GPIO, DPP_UART_SEL_nPROG, SOM_DPP_JTAG_EN
 		spi-max-frequency = <12000000>;
 		spi-cpha = <1>;
 		spi-cpol = <0>;

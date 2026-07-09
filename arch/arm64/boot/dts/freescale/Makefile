@@ -184,6 +184,7 @@ dtb-$(CONFIG_ARCH_MXC) += imx8mp-var-dart-sciaps-nir.dtb
 dtb-$(CONFIG_ARCH_MXC) += imx8mp-var-dart-sciaps-ngx-otd-35in.dtb
 dtb-$(CONFIG_ARCH_MXC) += imx8mp-var-dart-sciaps-ngx-otd-27in-citrobits.dtb
 dtb-$(CONFIG_ARCH_MXC) += imx8mp-var-dart-sciaps-btx-px40.dtb
+dtb-$(CONFIG_ARCH_MXC) += imx8mp-var-dart-sciaps-btx-px40pm.dtb
 dtb-$(CONFIG_ARCH_MXC) += imx8mp-var-dart-sciaps-btx-px80.dtb
 
 imx8mp-var-dart-1.x-sciaps-nir-0.x-dtbs := imx8mp-var-dart-sciaps-nir-0.x.dtb imx8mp-var-dart-1.x.dtbo
@@ -191,12 +192,14 @@ imx8mp-var-dart-1.x-sciaps-nir-dtbs := imx8mp-var-dart-sciaps-nir.dtb imx8mp-var
 imx8mp-var-dart-1.x-sciaps-ngx-otd-35in-dtbs := imx8mp-var-dart-sciaps-ngx-otd-35in.dtb imx8mp-var-dart-1.x.dtbo
 imx8mp-var-dart-1.x-sciaps-ngx-otd-27in-citrobits-dtbs := imx8mp-var-dart-sciaps-ngx-otd-27in-citrobits.dtb imx8mp-var-dart-1.x.dtbo
 imx8mp-var-dart-1.x-sciaps-btx-px40-dtbs := imx8mp-var-dart-sciaps-btx-px40.dtb imx8mp-var-dart-1.x.dtbo
+imx8mp-var-dart-1.x-sciaps-btx-px40pm-dtbs := imx8mp-var-dart-sciaps-btx-px40pm.dtb imx8mp-var-dart-1.x.dtbo
 imx8mp-var-dart-1.x-sciaps-btx-px80-dtbs := imx8mp-var-dart-sciaps-btx-px80.dtb imx8mp-var-dart-1.x.dtbo
 
 dtb-$(CONFIG_ARCH_MXC) += imx8mp-var-dart-1.x-sciaps-nir.dtb
 dtb-$(CONFIG_ARCH_MXC) += imx8mp-var-dart-1.x-sciaps-ngx-otd-35in.dtb
 dtb-$(CONFIG_ARCH_MXC) += imx8mp-var-dart-1.x-sciaps-ngx-otd-27in-citrobits.dtb
 dtb-$(CONFIG_ARCH_MXC) += imx8mp-var-dart-1.x-sciaps-btx-px40.dtb
+dtb-$(CONFIG_ARCH_MXC) += imx8mp-var-dart-1.x-sciaps-btx-px40pm.dtb
 dtb-$(CONFIG_ARCH_MXC) += imx8mp-var-dart-1.x-sciaps-btx-px80.dtb
 
 dtb-$(CONFIG_ARCH_MXC) += imx8mp-var-som-symphony.dtb

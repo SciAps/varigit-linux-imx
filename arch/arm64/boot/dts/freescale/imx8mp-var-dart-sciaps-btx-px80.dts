@@ -12,7 +12,7 @@
 	chosen {
 		stdout-path = &uart1;
 		//console=ttymxc0,115200 earlycon=ec_imx6q,0x30860000,1/15200 androidboot.console=ttymxc0
-		bootargs-append = "androidboot.primary_display=imx-drm androidboot.sciaps.camera.layout=dual-ov5645 androidboot.sciaps.lcd_density=160 androidboot.sciaps.btx.model=PX80 moal.mod_para=wifi_mod_para_sd8987.conf";
+		bootargs-append = "androidboot.primary_display=imx-drm androidboot.sciaps.camera.layout=dual-ov5645 androidboot.sciaps.lcd_density=160 androidboot.sciaps.btx.model=PX80 moal.mod_para=wifi_mod_para_iw612.conf"; // wifi_mod_para_iw612.conf wifi_mod_para_sd8987.conf
 	};
 
 	gpio-keys {

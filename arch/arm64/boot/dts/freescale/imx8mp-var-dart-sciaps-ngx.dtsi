@@ -8,12 +8,6 @@
 #include "imx8mp-var-dart.dtsi"
 
 / {
-	model = "SciAps NIR rev. 3 (version 0.1) based on Variscite DART-MX8M-PLUS";
-	chosen {
-		stdout-path = &uart1;
-		bootargs-append = "androidboot.primary_display=imx-drm androidboot.camera.layout=dual-ov5645 androidboot.sciaps.lcd_density=240 moal.mod_para=wifi_mod_para_iw612.conf"; // wifi_mod_para_iw612.conf wifi_mod_para_sd8987.conf
-	};
-
 	gpio-keys {
 		compatible = "gpio-keys";
 		pinctrl-names = "default";
@@ -71,19 +65,6 @@
 */
 	};
 
-//	gpio-leds {
-//		compatible = "gpio-leds";
-//		pinctrl-names = "default";
-//		pinctrl-0 = <&pinctrl_gpio_leds>;
-//		status = "okay";
-//
-//		emmc {
-//			label = "eMMC";
-//			gpios = <&gpio4 18 GPIO_ACTIVE_HIGH>;
-//			linux,default-trigger = "mmc2";
-//		};
-//	};
-
 	pcie0_refclk: pcie0-refclk {
 		compatible = "fixed-clock";
 		#clock-cells = <0>;
@@ -103,7 +84,6 @@
 
 	backlight: backlight {
 		compatible = "pwm-backlight";
-		pwms = <&pwm1 0 5000000 0>;
 		status = "okay";
 
 		brightness-levels = < 0  1  2  3  4  5  6  7  8  9
@@ -119,6 +99,7 @@
 							100>;
 		default-brightness-level = <80>;
 	};
+
 	can0_osc: can0_osc {
 		compatible = "fixed-clock";
 		#clock-cells = <0>;
@@ -177,9 +158,6 @@
 	status = "disabled";
 };
 
-
-// sciaps micro i2c-4
-// ilitek i2c-3
 &i2c2 {
 	clock-frequency = <400000>;
 	pinctrl-names = "default", "gpio";
@@ -211,9 +189,9 @@
 		};
 	};
 
-	ov5645_mipi1: ov5645_mipi@3c {
-		compatible = "ovti,ov5645";
-		reg = <0x3c>;
+	ov7695_mipi1: ov7695_mipi@21 {
+		compatible = "ovti,ov7695";
+		reg = <0x21>;
 		pinctrl-names = "default";
 		pinctrl-0 = <&pinctrl_mipi_csi_1_gpios>;
 #if 0
@@ -236,9 +214,9 @@
 		status = "okay";
 
 		port {
-			ov5645_mipi_1_ep: endpoint {
+			ov7695_mipi_1_ep: endpoint {
 				remote-endpoint = <&mipi_csi1_ep>;
-				data-lanes = <1 2>;
+				data-lanes = <1>;
 				clock-lanes = <0>;
 			};
 		};
@@ -314,11 +292,6 @@
 
 };
 
-/*
-
-
-
-*/
 &i2c4 {
 	clock-frequency = <100000>;
 	pinctrl-names = "default", "gpio";
@@ -336,6 +309,10 @@
 		sciaps-trigger-gpio = <&gpio1 9 GPIO_ACTIVE_LOW>;
 		smart-battery-comm-enable-gpio = <&pca9554_1 4 GPIO_ACTIVE_HIGH>;
 		speaker-enable-gpio = <&gpio1 29 GPIO_ACTIVE_HIGH>;
+		board-revision-gpios =	<&gpio4 00 GPIO_ACTIVE_HIGH>,
+								<&gpio4 01 GPIO_ACTIVE_HIGH>,
+								<&gpio4 02 GPIO_ACTIVE_HIGH>,
+								<&gpio4 03 GPIO_ACTIVE_HIGH>;
 		status = "okay";
 	};
 
@@ -435,8 +412,6 @@
 	};
 };
 
-
-
 &i2c6 {
 	clock-frequency = <400000>;
 	pinctrl-names = "default", "gpio";
@@ -519,23 +494,6 @@
 	status = "disabled";
 };
 
-&mipi_dsi {
-	status = "okay";
-	panel@0 {
-		compatible = "ortus,com35h3n82ulc";
-		backlight = <&backlight>;
-		reg = <0>;
-		pinctrl-0 = <&pinctrl_mipi_dsi_reset>;
-		reset-gpios = <&gpio1 6 GPIO_ACTIVE_LOW>;
-		dsi-lanes = <2>;
-		video-mode = <2>;	/* 0: burst mode
-					 * 1: non-burst mode with sync event
-					 * 2: non-burst mode with sync pulse
-					 */
-		status = "okay";
-	};
-};
-
 &pcie {
 	reset-gpio = <&pca6408_2 3 GPIO_ACTIVE_LOW>;
 	ext_osc = <1>;
@@ -556,6 +514,7 @@
 &pcie_ep {
 	ext_osc = <1>;
 	clocks = <&clk IMX8MP_CLK_HSIO_ROOT>,
+
 		 <&clk IMX8MP_CLK_PCIE_AUX>,
 		 <&clk IMX8MP_CLK_HSIO_AXI>,
 		 <&clk IMX8MP_CLK_PCIE_ROOT>;
@@ -679,10 +638,11 @@
 	port@1 {
 		reg = <1>;
 		mipi_csi1_ep: endpoint {
-			remote-endpoint = <&ov5645_mipi_1_ep>;
-			data-lanes = <2>;
-			csis-clk-settle = <0>;
-			csis-hs-settle = <9>;
+			remote-endpoint = <&ov7695_mipi_1_ep>;
+			data-lanes = <1>;
+			//csis-hs-settle = <13>;
+			//csis-clk-settle = <2>;
+			csis-hs-settle = <5>;
 			csis-wclk;
 		};
 	};
@@ -729,8 +689,23 @@
 		spi-cpha = <1>;
 		spi-cpol = <0>;
 		brcm,nir2-cooling-temp-C = <0xc1200000>;
-		status = "okay";
+		status = "disabled";
 	};
+
+    sciaps-ketek-dpp3@0 {
+        compatible = "sciaps,ketek-dpp3";
+        reg = <0>;
+		pinctrl-names = "default";
+		pinctrl-0 = <&pinctrl_ketek_dpp3_gpios>;
+		enable-gpios = <&gpio4 22 GPIO_ACTIVE_HIGH>;  //It is actually DPP_nUART_SPI
+		dpp-enable-gpios = <&gpio4 27 GPIO_ACTIVE_HIGH>;  //It is actually DPP_nUART_SPI
+		cs-gpios = <&gpio1 17 GPIO_ACTIVE_LOW>, <&gpio4 24 GPIO_ACTIVE_LOW>, <&gpio4 23 GPIO_ACTIVE_LOW>;    //GPIO117/CS_GPIO, DPP_UART_SEL_nPROG, SOM_DPP_JTAG_EN
+        spi-max-frequency = <12000000>;
+        //sciaps,spi-speed-hz = <8000000>;
+        sciaps,spi-speed-hz = <5000000>;
+        //sciaps,spi-speed-hz = <10000000>;
+        status = "okay";
+    };
 
 };
 
@@ -987,6 +962,16 @@
 		>;
 	};
 
+	pinctrl_ketek_dpp3_gpios: ketekdpp3grp {
+		fsl,pins = <
+			MX8MP_IOMUXC_ENET_MDIO__GPIO1_IO17				0x16 // GPIO117/CS_GPIO as nCS0: Fast slew rate, drivestrength x6
+			MX8MP_IOMUXC_SAI2_TXFS__GPIO4_IO24				0x156 // DPP_UART_SEL_nPROG as nCS1: weak pullup enabled, Fast slew rate, drivestrength x6
+			MX8MP_IOMUXC_SAI2_RXD0__GPIO4_IO23				0x116 // SOM_DPP_JTAG_EN as nCS2: weak pulldown enabled, Fast slew rate, drivestrength x6
+			MX8MP_IOMUXC_SAI2_RXC__GPIO4_IO22				0x156 // DPP_nUART_SPI: weak pullup enabled, Fast slew rate, drivestrength x6
+			MX8MP_IOMUXC_SAI2_MCLK__GPIO4_IO27				0x156 // SOM_DPP_6V0_EN: weak pullup enabled, Fast slew rate, drivestrength x6
+		>;
+	};
+
 	pinctrl_extcon: extcongrp {
 		fsl,pins = <
 			MX8MP_IOMUXC_GPIO1_IO10__GPIO1_IO10				0x10
@@ -1042,9 +1027,11 @@
 		fsl,pins = <
 			MX8MP_IOMUXC_ENET_RD3__GPIO1_IO29				0x16  // SPEAKER_SDWON: Fast slew rate, drivestrength x6
 			MX8MP_IOMUXC_GPIO1_IO09__GPIO1_IO09				0x146 // Trigger: weak pullup enabled, drivestrength x6
+			//Board Revision Pins
+			MX8MP_IOMUXC_SAI1_RXFS__GPIO4_IO00				0x140 // Trigger: weak pullup enabled, drivestrength x1
+			MX8MP_IOMUXC_SAI1_RXC__GPIO4_IO01				0x140 // Trigger: weak pullup enabled, drivestrength x1
+			MX8MP_IOMUXC_SAI1_RXD0__GPIO4_IO02				0x140 // Trigger: weak pullup enabled, drivestrength x1
+			MX8MP_IOMUXC_SAI1_RXD1__GPIO4_IO03				0x140 // Trigger: weak pullup enabled, drivestrength x1
 		>;
 	};
-
 };
-
-#include "imx8mp-android.dtsi"

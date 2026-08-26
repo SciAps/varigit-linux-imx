@@ -13,8 +13,10 @@
 
 #define ABP060MG_ERROR_MASK   0xC000
 #define ABP060MG_RESP_TIME_MS 40
-#define ABP060MG_MIN_COUNTS   1638  /* = 0x0666 (10% of u14) */
-#define ABP060MG_MAX_COUNTS   14745 /* = 0x3999 (90% of u14) */
+//#define ABP060MG_MIN_COUNTS   1638  /* = 0x0666 (10% of u14) */
+//#define ABP060MG_MAX_COUNTS   14745 /* = 0x3999 (90% of u14) */
+#define ABP060MG_MIN_COUNTS 819    /* 5% of 14-bit max */
+#define ABP060MG_MAX_COUNTS 15564  /* 95% of 14-bit max */
 #define ABP060MG_NUM_COUNTS   (ABP060MG_MAX_COUNTS - ABP060MG_MIN_COUNTS)
 
 enum abp_variant {
@@ -25,7 +27,7 @@ enum abp_variant {
 	ABP006KD, ABP010KD, ABP016KD, ABP025KD, ABP040KD, ABP060KD, ABP100KD,
 	ABP160KD, ABP250KD, ABP400KD,
 	/* gage [psi] */
-	ABP001PG, ABP005PG, ABP015PG, ABP030PG, ABP060PG, ABP100PG, ABP150PG,
+	ABP001PG, ABP005PG, ABP015PG, ABP030PG, ABP060PG, ABP100PG, ABP150PG, SSC015PG,
 	/* differential [psi] */
 	ABP001PD, ABP005PD, ABP015PD, ABP030PD, ABP060PD,
 };
@@ -67,6 +69,7 @@ static struct abp_config abp_config[] = {
 	[ABP060PG] = { .min =       0, .max =   413686 },
 	[ABP100PG] = { .min =       0, .max =   689476 },
 	[ABP150PG] = { .min =       0, .max =  1034214 },
+	[SSC015PG] = { .min =       0, .max =   103421 },
 	[ABP001PD] = { .min =   -6895, .max =     6895 },
 	[ABP005PD] = { .min =  -34474, .max =    34474 },
 	[ABP015PD] = { .min = -103421, .max =   103421 },
@@ -94,6 +97,10 @@ static const struct iio_chan_spec abp060mg_channels[] = {
 		.type = IIO_PRESSURE,
 		.info_mask_separate = BIT(IIO_CHAN_INFO_RAW) |
 			BIT(IIO_CHAN_INFO_OFFSET) | BIT(IIO_CHAN_INFO_SCALE),
+	},
+	{
+		.type = IIO_TEMP,
+		.info_mask_separate = BIT(IIO_CHAN_INFO_PROCESSED),
 	},
 };
 
@@ -127,6 +134,58 @@ static int abp060mg_get_measurement(struct abp_state *state, int *val)
 	return IIO_VAL_INT;
 }
 
+static int abp060mg_get_measurement_temp(struct abp_state *state, int *val, int *val2)
+{
+	struct i2c_client *client = state->client;
+	__be16 buf[2];
+	u16 pressure;
+	u16 temp_raw;
+	int temp_mc;
+	int ret;
+
+	buf[0] = 0;
+	ret = i2c_master_send(client, (u8 *)&buf, state->mreq_len);
+	if (ret < 0)
+		return ret;
+
+	msleep_interruptible(ABP060MG_RESP_TIME_MS);
+
+	ret = i2c_master_recv(client, (u8 *)&buf, sizeof(buf));
+	if (ret < 0)
+		return ret;
+
+	pressure = be16_to_cpu(buf[0]);
+	if (pressure & ABP060MG_ERROR_MASK)
+		return -EIO;
+
+	if (pressure < ABP060MG_MIN_COUNTS || pressure > ABP060MG_MAX_COUNTS)
+		return -EIO;
+
+
+    /*
+     * Extract 11-bit temperature.
+     *
+     * buf[1] contains:
+     *   bits[15:5] = temperature[10:0]
+     *   bits[4:0]  = don't care
+     */
+	temp_raw = (be16_to_cpu(buf[1]) >> 5) & 0x07ff;
+
+    /*
+     * Honeywell formula:
+     *
+     * Temp(C) = (temp_raw * 200 / 2047) - 50
+     *
+     * Return milli-Celsius.
+     */
+    temp_mc = ((temp_raw * 200000) / 2047) - 50000;
+
+	*val = temp_mc;
+	*val2 = 0;
+
+	return IIO_VAL_INT;
+}
+
 static int abp060mg_read_raw(struct iio_dev *indio_dev,
 			struct iio_chan_spec const *chan, int *val,
 			int *val2, long mask)
@@ -137,17 +196,36 @@ static int abp060mg_read_raw(struct iio_dev *indio_dev,
 	mutex_lock(&state->lock);
 
 	switch (mask) {
+	case IIO_CHAN_INFO_PROCESSED:
+		if (chan->type == IIO_TEMP)
+			ret = abp060mg_get_measurement_temp(state, val, val2);
+		else
+			ret = -EINVAL;
+		break;
 	case IIO_CHAN_INFO_RAW:
-		ret = abp060mg_get_measurement(state, val);
+		if (chan->type == IIO_PRESSURE)
+			ret = abp060mg_get_measurement(state, val);
+		else
+			ret = -EINVAL;
 		break;
 	case IIO_CHAN_INFO_OFFSET:
-		*val = state->offset;
-		ret = IIO_VAL_INT;
+		if (chan->type == IIO_PRESSURE) {
+			*val = state->offset;
+			ret = IIO_VAL_INT;
+		}
+		else {
+			ret = -EINVAL;
+		}
 		break;
 	case IIO_CHAN_INFO_SCALE:
-		*val = state->scale;
-		*val2 = ABP060MG_NUM_COUNTS * 1000; /* to kPa */
-		ret = IIO_VAL_FRACTIONAL;
+		if (chan->type == IIO_PRESSURE) {
+			*val = state->scale;
+			*val2 = ABP060MG_NUM_COUNTS * 1000; /* to kPa */
+			ret = IIO_VAL_FRACTIONAL;
+		}
+		else {
+			ret = -EINVAL;
+		}
 		break;
 	default:
 		ret = -EINVAL;
@@ -157,6 +235,7 @@ static int abp060mg_read_raw(struct iio_dev *indio_dev,
 	mutex_unlock(&state->lock);
 	return ret;
 }
+
 
 static const struct iio_info abp060mg_info = {
 	.read_raw = abp060mg_read_raw,
@@ -206,6 +285,12 @@ static int abp060mg_probe(struct i2c_client *client,
 	return devm_iio_device_register(&client->dev, indio_dev);
 }
 
+static const struct of_device_id abp060mg_of_matches[] = {
+    { .compatible = "honeywell,ssc015pg" },
+    { /* empty */ }
+};
+MODULE_DEVICE_TABLE(of, abp060mg_of_matches);
+
 static const struct i2c_device_id abp060mg_id_table[] = {
 	/* mbar & kPa variants (abp060m [60 mbar] == abp006k [6 kPa]) */
 	/*    gage: */
@@ -241,6 +326,7 @@ static const struct i2c_device_id abp060mg_id_table[] = {
 	{ "abp060pg", ABP060PG },
 	{ "abp100pg", ABP100PG },
 	{ "abp150pg", ABP150PG },
+	{ "ssc015pg", SSC015PG },
 	/*    differential: */
 	{ "abp001pd", ABP001PD },
 	{ "abp005pd", ABP005PD },
@@ -254,6 +340,7 @@ MODULE_DEVICE_TABLE(i2c, abp060mg_id_table);
 static struct i2c_driver abp060mg_driver = {
 	.driver = {
 		.name = "abp060mg",
+		.of_match_table = abp060mg_of_matches,
 	},
 	.probe = abp060mg_probe,
 	.id_table = abp060mg_id_table,

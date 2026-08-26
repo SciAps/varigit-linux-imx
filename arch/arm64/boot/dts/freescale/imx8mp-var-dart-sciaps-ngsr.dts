@@ -8,10 +8,11 @@
 #include "imx8mp-var-dart.dtsi"
 
 / {
-	model = "SciAps NIR rev. 3 (version 0.1) based on Variscite DART-MX8M-PLUS";
+	model = "SciAps NGSR rev. 1 based on Variscite DART-MX8M-PLUS - NH 7.0in Display";
 	chosen {
 		stdout-path = &uart1;
-		bootargs-append = "androidboot.primary_display=imx-drm androidboot.camera.layout=dual-ov5645 androidboot.sciaps.lcd_density=240 moal.mod_para=wifi_mod_para_iw612.conf"; // wifi_mod_para_iw612.conf wifi_mod_para_sd8987.conf
+		//console=ttymxc0,115200 earlycon=ec_imx6q,0x30860000,1/15200 androidboot.console=ttymxc0
+		bootargs-append = "androidboot.primary_display=imx-drm androidboot.sciaps.lcd_density=160 moal.mod_para=wifi_mod_para_iw612.conf"; // wifi_mod_para_iw612.conf wifi_mod_para_sd8987.conf
 	};
 
 	gpio-keys {
@@ -20,40 +21,40 @@
 		pinctrl-0 = <&pinctrl_gpio_keys>;
 		status = "okay";
 
-		back {
-			label = "Back";
-			linux,code = <KEY_BACK>;
-			gpios = <&pca9554_1 0 GPIO_ACTIVE_LOW>;
-			wakeup-source;
-		};
+		//back {
+		//	label = "Back";
+		//	linux,code = <KEY_BACK>;
+		//	gpios = <&pca9554_1 0 GPIO_ACTIVE_LOW>;
+		//	wakeup-source;
+		//};
 
-		up {
-			label = "Up";
-			linux,code = <KEY_UP>;
-			gpios = <&pca9554_1 1 GPIO_ACTIVE_LOW>;
-			wakeup-source;
-		};
+		//up {
+		//	label = "Up";
+		//	linux,code = <KEY_UP>;
+		//	gpios = <&pca9554_1 1 GPIO_ACTIVE_LOW>;
+		//	wakeup-source;
+		//};
 
-		home {
-			label = "Home";
-			linux,code = <KEY_HOMEPAGE>;
-			gpios = <&pca9554_1 3 GPIO_ACTIVE_LOW>;
-			wakeup-source;
-		};
+		//home {
+		//	label = "Home";
+		//	linux,code = <KEY_HOMEPAGE>;
+		//	gpios = <&pca9554_1 3 GPIO_ACTIVE_LOW>;
+		//	wakeup-source;
+		//};
 
-		down {
-			label = "Down";
-			linux,code = <KEY_DOWN>;
-			gpios = <&pca9554_1 2 GPIO_ACTIVE_LOW>;
-			wakeup-source;
-		};
+		//down {
+		//	label = "Down";
+		//	linux,code = <KEY_DOWN>;
+		//	gpios = <&pca9554_1 2 GPIO_ACTIVE_LOW>;
+		//	wakeup-source;
+		//};
 
 		power {
 			label = "onoff-button";
 			linux,code = <KEY_POWER>;
-			gpios = <&gpio1 20 GPIO_ACTIVE_LOW>;
+			gpios = <&gpio1 0 GPIO_ACTIVE_LOW>;
 			interrupt-parent = <&gpio1>;
-			interrupts = <20 IRQ_TYPE_EDGE_FALLING>;
+			interrupts = <0 IRQ_TYPE_EDGE_FALLING>;
 			wakeup-source;
 		};
 
@@ -83,6 +84,37 @@
 //			linux,default-trigger = "mmc2";
 //		};
 //	};
+	panel_lvds: panel-lvds {
+		compatible = "panel-lvds";
+		//data-mapping = "jeida-24";
+		data-mapping = "vesa-24";
+		width-mm = <155>;
+		height-mm = <87>;
+		backlight = <&backlight>;
+		status = "okay";
+
+		panel-timing {
+			clock-frequency = <66000000>;
+			hactive = <1024>;
+			vactive = <600>;
+			hback-porch = <160>;
+			hfront-porch = <128>;
+			vback-porch = <23>;
+			vfront-porch = <8>;
+			hsync-len = <32>;
+			vsync-len = <4>;
+			hsync-active = <0>;
+			vsync-active = <0>;
+			de-active = <1>;
+			pixelclk-active = <0>;
+		};
+
+		port {
+			panel_in_bridge: endpoint {
+				remote-endpoint = <&bridge_out_panel>;
+			};
+		};
+	};
 
 	pcie0_refclk: pcie0-refclk {
 		compatible = "fixed-clock";
@@ -103,7 +135,7 @@
 
 	backlight: backlight {
 		compatible = "pwm-backlight";
-		pwms = <&pwm1 0 5000000 0>;
+		pwms = <&pwm1 0 80000 0>; //80us - the value is in ns
 		status = "okay";
 
 		brightness-levels = < 0  1  2  3  4  5  6  7  8  9
@@ -118,7 +150,9 @@
 							 90 91 92 93 94 95 96 97 98 99
 							100>;
 		default-brightness-level = <80>;
+
 	};
+
 	can0_osc: can0_osc {
 		compatible = "fixed-clock";
 		#clock-cells = <0>;
@@ -164,10 +198,31 @@
 
 
 &eqos {
-	status = "disabled";
+	mdio {
+		ethphy1: ethernet-phy@1 {
+			compatible = "ethernet-phy-ieee802.3-c22";
+			reg = <1>;
+			at803x,eee-disabled;
+			eee-broken-1000t;
+			//reset-gpios = <&pca6408_2 0 GPIO_ACTIVE_LOW>;
+			reset-assert-us = <10000>;
+			reset-deassert-us = <20000>;
+			vddio-supply = <&vddio1>;
+			status = "disabled";
+
+			vddio1: vddio-regulator {
+				regulator-min-microvolt = <1800000>;
+				regulator-max-microvolt = <1800000>;
+			};
+		};
+	};
 };
 
 &fec {
+	pinctrl-names = "default";
+	pinctrl-0 = <&pinctrl_fec>;
+	phy-mode = "rgmii";
+	phy-handle = <&ethphy1>;
 	status = "disabled";
 };
 
@@ -177,9 +232,6 @@
 	status = "disabled";
 };
 
-
-// sciaps micro i2c-4
-// ilitek i2c-3
 &i2c2 {
 	clock-frequency = <400000>;
 	pinctrl-names = "default", "gpio";
@@ -189,6 +241,7 @@
 	sda-gpios = <&gpio5 17 GPIO_ACTIVE_HIGH>;
 	status = "okay";
 
+#if 0
 	pca9633: leds@62 {
 		compatible = "nxp,pca9633";
 		#address-cells = <1>;
@@ -210,6 +263,7 @@
 			linux,default-trigger = "none";
 		};
 	};
+#endif
 
 	ov5645_mipi1: ov5645_mipi@3c {
 		compatible = "ovti,ov5645";
@@ -233,7 +287,7 @@
 		mclk-enable-gpios = <&gpio3 8 GPIO_ACTIVE_HIGH>;
 		external-power-supplies;
 		mipi_csi;
-		status = "okay";
+		status = "disabled";
 
 		port {
 			ov5645_mipi_1_ep: endpoint {
@@ -286,39 +340,50 @@
 	sda-gpios = <&gpio5 19 GPIO_ACTIVE_HIGH>;
 	status = "okay";
 
-	ilitek@26 {
-		compatible = "ilitek,ili2117";
-		reg = <0x26>;
-		// -- interrupt-parent = <&msm_gpio>;
-		// -- interrupts = <13 0x0>;
-		//vdd-supply = <&pm8916_l17>;
-		//vcc_i2c-supply = <&pm8916_l6>;
-		// -- touch,irq-gpio = <&msm_gpio 13 0x0>;
-		// -- touch,reset-gpio = <&msm_gpio 12 0x0>;
-		//ilitek,vbus = "vcc_i2c";
-		//ilitek,vdd = "vdd";
-		// -- ilitek,name = "ilitek_i2c";
+	touchscreen@38 {
+		compatible = "edt,edt-ft5506";
+		reg = <0x38>;
 		pinctrl-names = "default";
 		pinctrl-0 = <&pinctrl_captouch>;
 		reset-gpios = <&gpio4 25 GPIO_ACTIVE_LOW>;
-		interrupt-parent = <&gpio1>;
-		interrupts = <21 IRQ_TYPE_EDGE_RISING>;// IRQ_TYPE_EDGE_RISING IRQ_TYPE_EDGE_FALLING
-		touchscreen-size-x = <480>;
-		touchscreen-size-y = <640>;
-		//ili2117a,poll-period = <1>;
-		//touchscreen-inverted-x;
-		//touchscreen-inverted-y;
-		wakeup-source;
-		status = "ok";
+		interrupt-parent = <&gpio5>;
+		interrupts = <9 IRQ_TYPE_EDGE_RISING>;// IRQ_TYPE_EDGE_RISING IRQ_TYPE_EDGE_FALLING
+		touchscreen-size-x = <1024>;
+		touchscreen-size-y = <600>;
+		//vcc-supply = <&reg_lcd_1v8>;
+		status = "okay";
 	};
 
+	dsi_lvds_bridge: sn65dsi84@2c {
+		compatible = "ti,sn65dsi84";
+		reg = <0x2c>;
+		enable-gpios = <&gpio1 6 GPIO_ACTIVE_HIGH>;
+		pinctrl-names = "default";
+		pinctrl-0 = <&pinctrl_mipi_dsi_reset>;
+		status = "okay";
+
+		ports {
+			#address-cells = <1>;
+			#size-cells = <0>;
+
+			port@0 {
+				reg = <0>;
+				bridge_in_dsi: endpoint {
+					remote-endpoint = <&mipi_dsi_out>;
+					data-lanes = <1 2 3 4>;
+				};
+			};
+
+			port@2 {
+				reg = <2>;
+				bridge_out_panel: endpoint {
+					remote-endpoint = <&panel_in_bridge>;
+				};
+			};
+		};
+	};
 };
 
-/*
-
-
-
-*/
 &i2c4 {
 	clock-frequency = <100000>;
 	pinctrl-names = "default", "gpio";
@@ -333,37 +398,31 @@
 		reg = <0x59>;
 		pinctrl-names = "default";
 		pinctrl-0 = <&pinctrl_sciapsmicro>;
-		sciaps-trigger-gpio = <&gpio1 9 GPIO_ACTIVE_LOW>;
-		smart-battery-comm-enable-gpio = <&pca9554_1 4 GPIO_ACTIVE_HIGH>;
-		speaker-enable-gpio = <&gpio1 29 GPIO_ACTIVE_HIGH>;
+		sciaps-trigger-gpio = <&gpio4 5 GPIO_ACTIVE_LOW>;
+		smart-battery-comm-enable-gpio = <&gpio3 27 GPIO_ACTIVE_HIGH>;
+		speaker-enable-gpio = <&gpio5 06 GPIO_ACTIVE_HIGH>;
+		board-revision-gpios =	<&gpio4 00 GPIO_ACTIVE_HIGH>,
+								<&gpio4 01 GPIO_ACTIVE_HIGH>,
+								<&gpio4 02 GPIO_ACTIVE_HIGH>,
+								<&gpio4 03 GPIO_ACTIVE_HIGH>;
 		status = "okay";
 	};
 
-	ie-battery@b {
-		compatible = "smb-ti-bq40z80";
+	ie-dual-battery@b {
+		compatible = "nh2054-dual";
 		reg = <0xb>;
-		pinctrl-names = "default";
-		pinctrl-0 = <&pinctrl_battery>;
 		sciaps,support-shutdown = <1>;
-		sciaps,shutdown-timer   = <12>;
-		sciaps,capacity-low-thres-mAh = <10>;
+		sciaps,shutdown-timer   = <15>;
+		sciaps,capacity-low-thres-mAh = <0>; // calculated based on sciaps,capacity-low-thres
 		sciaps,capacity-low-thres = <5>; // 0.5 %
 		sciaps,voltage-crit-low-thres-mV = <11000>;
 		sciaps,voltage-low-thres-mV = <14000>;
-		sciaps,charging-current-mA = <1700>;
-		sciaps,poll-interval = <10>; // seconds
-		sciaps,poll-slow-enable-count = <6>; // # Number of retries before entering slow polling mode: ~60 s on 10 seconds interval
-		sciaps,poll-interval-slow = <60>; //seconds
-		sciaps-scap-npfo-gpio = <&gpio1 0 GPIO_ACTIVE_HIGH>;
 		status = "okay";
 	};
 
-	ie-charger@9 {
-		compatible = "smb-ltc4100-charger";
-		reg = <0x9>;
-		sciaps,poll-interval = <2>; // seconds
-		sciaps,poll-slow-enable-count = <30>; // # Number of retries before entering slow polling mode: ~60 s on 2 seconds interval
-		sciaps,poll-interval-slow = <2>; //seconds - slow mode  is the same as we need to detect quickly when the charger gets plugged in
+	ltc1760-charger@a {
+		compatible = "ltc1760";
+		reg = <0xa>;
 		status = "okay";
 	};
 
@@ -377,17 +436,18 @@
 		pinctrl-0 = <&pinctrl_pca9554>;
 		interrupt-parent = <&gpio1>;
 		interrupts = <5 IRQ_TYPE_EDGE_FALLING>;
-		status = "okay";
-	};
-
-	pca6408_2: gpio@21 {
-		compatible = "nxp,pcal6408";
-		standard-regs-fallback;
-		reg = <0x21>;
-		gpio-controller;
-		#gpio-cells = <2>;
+		//status = "okay";
 		status = "disabled";
 	};
+
+	//pca6408_2: gpio@21 {
+	//	compatible = "nxp,pcal6408";
+	//	standard-regs-fallback;
+	//	reg = <0x21>;
+	//	gpio-controller;
+	//	#gpio-cells = <2>;
+	//	status = "disabled";
+	//};
 
 };
 
@@ -423,7 +483,7 @@
 		mipi_csi;
 		auto-focus;
 		external-power-supplies;
-		status = "okay";
+		status = "disabled";
 
 		port {
 			ov5645_mipi_0_ep: endpoint {
@@ -457,7 +517,7 @@
 		ubx,hAccAcceptThreshold         = <15000>;  // mm
 		ubx,nSatsAcceptAlwaysThreshold  = <5>;      // # of sats
 		extint-gpios = <&gpio3 26 GPIO_ACTIVE_LOW>;
-		reset-gpios = <&gpio3 27 GPIO_ACTIVE_LOW>;
+		//reset-gpios = <&gpio3 27 GPIO_ACTIVE_LOW>; // USED for SOM_TO_CHARGER_EN on NGSR
 		status = "okay";
 	};
 };
@@ -521,23 +581,17 @@
 
 &mipi_dsi {
 	status = "okay";
-	panel@0 {
-		compatible = "ortus,com35h3n82ulc";
-		backlight = <&backlight>;
-		reg = <0>;
-		pinctrl-0 = <&pinctrl_mipi_dsi_reset>;
-		reset-gpios = <&gpio1 6 GPIO_ACTIVE_LOW>;
-		dsi-lanes = <2>;
-		video-mode = <2>;	/* 0: burst mode
-					 * 1: non-burst mode with sync event
-					 * 2: non-burst mode with sync pulse
-					 */
-		status = "okay";
+
+	port@1 {
+		mipi_dsi_out: endpoint {
+			remote-endpoint = <&bridge_in_dsi>;
+			attach-bridge;
+		};
 	};
 };
 
 &pcie {
-	reset-gpio = <&pca6408_2 3 GPIO_ACTIVE_LOW>;
+	//reset-gpio = <&pca6408_2 3 GPIO_ACTIVE_LOW>;
 	ext_osc = <1>;
 	clocks = <&clk IMX8MP_CLK_HSIO_ROOT>,
 			 <&clk IMX8MP_CLK_PCIE_AUX>,
@@ -556,6 +610,7 @@
 &pcie_ep {
 	ext_osc = <1>;
 	clocks = <&clk IMX8MP_CLK_HSIO_ROOT>,
+
 		 <&clk IMX8MP_CLK_PCIE_AUX>,
 		 <&clk IMX8MP_CLK_HSIO_AXI>,
 		 <&clk IMX8MP_CLK_PCIE_ROOT>;
@@ -584,9 +639,38 @@
 
 /* Header */
 &uart2 {
+
+    assigned-clocks = <&clk IMX8MP_CLK_UART2>;
+    assigned-clock-parents = <&clk IMX8MP_SYS_PLL1_80M>;
+    assigned-clock-rates = <80000000>;
+
 	pinctrl-names = "default";
 	pinctrl-0 = <&pinctrl_uart2>;
 	status = "okay";
+
+	sciaps-ngsr {
+		compatible = "sciaps,ngsr";
+		current-speed = <1562500>;//<3250000>;//<921600>;
+		#address-cells = <1>;
+		#size-cells = <1>;
+		pinctrl-names = "default";
+		pinctrl-0 = <&pinctrl_sciapsngsr>;
+		interrupt-parent = <&gpio4>;
+		interrupts = <8  IRQ_TYPE_EDGE_RISING>,
+				     <9  IRQ_TYPE_EDGE_RISING>,
+				     <12 IRQ_TYPE_EDGE_RISING>,
+				     <11 IRQ_TYPE_EDGE_RISING>,
+				     <16 IRQ_TYPE_EDGE_RISING>;
+		interrupt-names = "irq-swir1a-data-rdy",
+						  "irq-swir1b-data-rdy",
+						  "irq-swir2a-data-rdy",
+						  "irq-swir2b-data-rdy",
+						  "irq-vnir-data-rdy";
+		status = "okay";
+
+		fpga-nprogram-gpios = <&gpio4 17 GPIO_ACTIVE_LOW>;
+
+	};
 };
 
 /* Header */
@@ -657,7 +741,7 @@
 &mipi_csi_0 {
 	#address-cells = <1>;
 	#size-cells = <0>;
-	status = "okay";
+	status = "disabled";
 
 	port@0 {
 		reg = <0>;
@@ -674,15 +758,16 @@
 &mipi_csi_1 {
 	#address-cells = <1>;
 	#size-cells = <0>;
-	status = "okay";
+	status = "disbaled";
 
 	port@1 {
 		reg = <1>;
 		mipi_csi1_ep: endpoint {
 			remote-endpoint = <&ov5645_mipi_1_ep>;
 			data-lanes = <2>;
-			csis-clk-settle = <0>;
-			csis-hs-settle = <9>;
+			//csis-hs-settle = <13>;
+			//csis-clk-settle = <2>;
+			csis-hs-settle = <5>;
 			csis-wclk;
 		};
 	};
@@ -716,7 +801,7 @@
 	pinctrl-names = "default";
 	pinctrl-0 = <&pinctrl_ecspi1>;
 	cs-gpios = <&gpio5  9 GPIO_ACTIVE_LOW>;
-	status = "okay";
+	status = "disabled";
 
 	brcm_niolink_multi@0 {
 		compatible = "broadcom,niolink-multi";
@@ -724,13 +809,28 @@
 		pinctrl-names = "default";
 		pinctrl-0 = <&pinctrl_brcm_spect_gpios>;
 		enable-gpios = <&gpio4 22 GPIO_ACTIVE_HIGH>;  //It is actually DPP_nUART_SPI
-		cs-gpios = <&gpio1 17 GPIO_ACTIVE_LOW>, <&gpio4 24 GPIO_ACTIVE_LOW>,  <&gpio4 23 GPIO_ACTIVE_LOW>;    //GPIO117/CS_GPIO, DPP_UART_SEL_nPROG, SOM_DPP_JTAG_EN
+		cs-gpios = <&gpio1 17 GPIO_ACTIVE_LOW>, <&gpio4 23 GPIO_ACTIVE_HIGH>,  <&gpio4 24 GPIO_ACTIVE_LOW>;    //GPIO117/CS_GPIO, DPP_UART_SEL_nPROG, SOM_DPP_JTAG_EN
 		spi-max-frequency = <12000000>;
 		spi-cpha = <1>;
 		spi-cpol = <0>;
 		brcm,nir2-cooling-temp-C = <0xc1200000>;
-		status = "okay";
+		status = "disabled";
 	};
+
+    sciaps-ketek-dpp3@0 {
+        compatible = "sciaps,ketek-dpp3";
+        reg = <0>;
+		pinctrl-names = "default";
+		pinctrl-0 = <&pinctrl_ketek_dpp3_gpios>;
+		enable-gpios = <&gpio4 22 GPIO_ACTIVE_HIGH>;  //It is actually DPP_nUART_SPI
+		dpp-enable-gpios = <&gpio4 27 GPIO_ACTIVE_HIGH>;  //It is actually DPP_nUART_SPI
+		cs-gpios = <&gpio1 17 GPIO_ACTIVE_LOW>, <&gpio4 23 GPIO_ACTIVE_HIGH>, <&gpio4 24 GPIO_ACTIVE_LOW>;    //GPIO117/CS_GPIO, DPP_UART_SEL_nPROG, SOM_DPP_JTAG_EN
+        spi-max-frequency = <12000000>;
+        //sciaps,spi-speed-hz = <8000000>;
+        sciaps,spi-speed-hz = <5000000>;
+        //sciaps,spi-speed-hz = <10000000>;
+        status = "disabled";
+    };
 
 };
 
@@ -870,8 +970,8 @@
 
 	pinctrl_uart2: uart2grp {
 		fsl,pins = <
-			MX8MP_IOMUXC_UART2_RXD__UART2_DCE_RX				0x40
-			MX8MP_IOMUXC_UART2_TXD__UART2_DCE_TX				0x40
+			MX8MP_IOMUXC_UART2_RXD__UART2_DCE_RX				0x146
+			MX8MP_IOMUXC_UART2_TXD__UART2_DCE_TX				0x146
 		>;
 	};
 
@@ -943,13 +1043,13 @@
 	pinctrl_captouch: captouchgrp {
 		fsl,pins = <
 			MX8MP_IOMUXC_SAI2_TXC__GPIO4_IO25				0x16  // Touch nRst: weak pulldown enabled, drivestrength x6
-			MX8MP_IOMUXC_ENET_TD0__GPIO1_IO21				0x16  // Touch nInt: weak pullup enabled, drivestrength x6
+			MX8MP_IOMUXC_ECSPI1_SS0__GPIO5_IO09				0x16  // Touch nInt: weak pullup enabled, drivestrength x6
 		>;
 	};
 
 	pinctrl_gpio_keys: keysgrp {
 		fsl,pins = <
-			MX8MP_IOMUXC_ENET_TD1__GPIO1_IO20				0x146 // ONOFF Button: weak pullup enabled, drivestrength x6
+			MX8MP_IOMUXC_GPIO1_IO00__GPIO1_IO00				0x146 // ONOFF Button: weak pullup enabled, drivestrength x6
 		>;
 	};
 
@@ -974,7 +1074,7 @@
 	pinctrl_gnss_gpios: gnssgrp {
 		fsl,pins = <
 			MX8MP_IOMUXC_HDMI_DDC_SCL__GPIO3_IO26			0x16 // GPS_EXTINT: Fast slew rate, drivestrength x6
-			MX8MP_IOMUXC_HDMI_DDC_SDA__GPIO3_IO27			0x36 // GPS_nRST: Open Drain Enabled, Fast slew rate, drivestrength x6
+			//MX8MP_IOMUXC_HDMI_DDC_SDA__GPIO3_IO27			0x36 // GPS_nRST: Open Drain Enabled, Fast slew rate, drivestrength x6 // USED for  SOM_TO_CHARGER_EN on NGSR
 		>;
 	};
 
@@ -984,6 +1084,16 @@
 			MX8MP_IOMUXC_SAI2_TXFS__GPIO4_IO24				0x16 // DPP_UART_SEL_nPROG as nCS1: Fast slew rate, drivestrength x6
 			MX8MP_IOMUXC_SAI2_RXD0__GPIO4_IO23				0x16 // SOM_DPP_JTAG_EN as nCS2: Fast slew rate, drivestrength x6
 			MX8MP_IOMUXC_SAI2_RXC__GPIO4_IO22				0x156 // DPP_nUART_SPI: weak pullup enabled, Fast slew rate, drivestrength x6
+		>;
+	};
+
+	pinctrl_ketek_dpp3_gpios: ketekdpp3grp {
+		fsl,pins = <
+			MX8MP_IOMUXC_ENET_MDIO__GPIO1_IO17				0x16 // GPIO117/CS_GPIO as nCS0: Fast slew rate, drivestrength x6
+			MX8MP_IOMUXC_SAI2_TXFS__GPIO4_IO24				0x156 // DPP_UART_SEL_nPROG as nCS1: weak pullup enabled, Fast slew rate, drivestrength x6
+			MX8MP_IOMUXC_SAI2_RXD0__GPIO4_IO23				0x116 // SOM_DPP_JTAG_EN as nCS2: weak pulldown enabled, Fast slew rate, drivestrength x6
+			MX8MP_IOMUXC_SAI2_RXC__GPIO4_IO22				0x156 // DPP_nUART_SPI: weak pullup enabled, Fast slew rate, drivestrength x6
+			MX8MP_IOMUXC_SAI2_MCLK__GPIO4_IO27				0x156 // SOM_DPP_6V0_EN: weak pullup enabled, Fast slew rate, drivestrength x6
 		>;
 	};
 
@@ -1040,11 +1150,27 @@
 
 	pinctrl_sciapsmicro: sciapsmicrogrp {
 		fsl,pins = <
-			MX8MP_IOMUXC_ENET_RD3__GPIO1_IO29				0x16  // SPEAKER_SDWON: Fast slew rate, drivestrength x6
-			MX8MP_IOMUXC_GPIO1_IO09__GPIO1_IO09				0x146 // Trigger: weak pullup enabled, drivestrength x6
+			MX8MP_IOMUXC_ECSPI1_SCLK__GPIO5_IO06			0x16  // SPEAKER_SDWON: Fast slew rate, drivestrength x6
+			MX8MP_IOMUXC_SAI1_RXD3__GPIO4_IO05				0x146 // Trigger: weak pullup enabled, drivestrength x6
+			MX8MP_IOMUXC_HDMI_DDC_SDA__GPIO3_IO27			0x16  // SOM_TO_CHARGER_EN: Fast slew rate, drivestrength x6
+			//Board Revision Pins
+			MX8MP_IOMUXC_SAI1_RXFS__GPIO4_IO00				0x140 // Trigger: weak pullup enabled, drivestrength x1
+			MX8MP_IOMUXC_SAI1_RXC__GPIO4_IO01				0x140 // Trigger: weak pullup enabled, drivestrength x1
+			MX8MP_IOMUXC_SAI1_RXD0__GPIO4_IO02				0x140 // Trigger: weak pullup enabled, drivestrength x1
+			MX8MP_IOMUXC_SAI1_RXD1__GPIO4_IO03				0x140 // Trigger: weak pullup enabled, drivestrength x1
 		>;
 	};
 
+	pinctrl_sciapsngsr: sciapsngsrgrp {
+		fsl,pins = <
+			MX8MP_IOMUXC_SAI1_TXD5__GPIO4_IO17				0x146  // SOM_nPROG: weak pullup enabled, drivestrength x6
+			MX8MP_IOMUXC_SAI1_RXD6__GPIO4_IO08				0x10   // SWIR1A_BUF_RDY: Fast slew rate, drivestrength x1
+			MX8MP_IOMUXC_SAI1_RXD7__GPIO4_IO09				0x10   // SWIR1B_BUF_RDY: Fast slew rate, drivestrength x1
+			MX8MP_IOMUXC_SAI1_TXD0__GPIO4_IO12				0x10   // SWIR2B_BUF_RDY: Fast slew rate, drivestrength x1
+			MX8MP_IOMUXC_SAI1_TXC__GPIO4_IO11				0x10   // SWIR2B_BUF_RDY: Fast slew rate, drivestrength x1
+			MX8MP_IOMUXC_SAI1_TXD4__GPIO4_IO16				0x10   // VNIR_BUF_RDY: Fast slew rate, drivestrength x1
+		>;
+	};
 };
 
 #include "imx8mp-android.dtsi"

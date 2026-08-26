@@ -136,6 +136,7 @@ enum chips { adm1023, adm1032, adt7461, adt7461a, adt7481,
 	g781, lm84, lm90, lm99,
 	max1617, max6642, max6646, max6648, max6654, max6657, max6659, max6680, max6696,
 	nct210, nct72, ne1618, sa56004, tmp451, tmp461, w83l771,
+	mic280,
 };
 
 /*
@@ -235,6 +236,7 @@ enum chips { adm1023, adm1032, adt7461, adt7461a, adt7481,
  */
 
 static const struct i2c_device_id lm90_id[] = {
+	{ "mic280", mic280 },
 	{ "adm1020", max1617 },
 	{ "adm1021", max1617 },
 	{ "adm1023", adm1023 },
@@ -285,6 +287,10 @@ static const struct i2c_device_id lm90_id[] = {
 MODULE_DEVICE_TABLE(i2c, lm90_id);
 
 static const struct of_device_id __maybe_unused lm90_of_match[] = {
+	{
+		.compatible = "micrel,mic280",
+		.data = (void *)mic280
+	},
 	{
 		.compatible = "adi,adm1032",
 		.data = (void *)adm1032
@@ -417,6 +423,12 @@ struct lm90_params {
 };
 
 static const struct lm90_params lm90_params[] = {
+	[mic280] = {
+		.flags = LM90_HAVE_REMOTE_EXT | LM90_HAVE_CRIT,
+		.alert_alarms = 0x7c,
+		.max_convrate = 8,
+		.resolution = 12,
+	},
 	[adm1023] = {
 		.flags = LM90_HAVE_ALARMS | LM90_HAVE_OFFSET | LM90_HAVE_BROKEN_ALERT
 		  | LM90_HAVE_REM_LIMIT_EXT | LM90_HAVE_LOW | LM90_HAVE_CONVRATE
@@ -1236,6 +1248,7 @@ static int lm90_update_device(struct device *dev)
 		if (val < 0)
 			return val;
 		data->temp[LOCAL_TEMP] = val;
+
 		val = lm90_read16(client, LM90_REG_REMOTE_TEMPH,
 				  data->reg_remote_ext, true);
 		if (val < 0)
@@ -1361,7 +1374,7 @@ static int lm90_get_temp(struct lm90_data *data, int index, int channel)
 	if (data->kind == lm99 && channel)
 		temp += 16000;
 
-	if (index == REMOTE_TEMP)
+	if (data->kind != mic280 && index == REMOTE_TEMP)
 		temp = adjust_temp_diode(temp);
 
 	return temp;
@@ -2607,6 +2620,29 @@ static int lm90_init_client(struct i2c_client *client, struct lm90_data *data)
 			data->flags &= ~LM90_HAVE_EXTENDED_TEMP;
 	}
 
+	if (data->kind == mic280) {
+		int err;
+		u32 res = 12;
+		u8	res_config = (0x3 << 2);
+		err = of_property_read_u32(np, "micrel,resolution", &res);
+		if (err) {
+			dev_err(&client->dev, "missing 'micrel,resolution' property: using 12-bits\n");
+		}
+
+		switch (res) {
+			case  9 : res_config = (0x0 << 2); break;
+			case 10 : res_config = (0x1 << 2); break;
+			case 11 : res_config = (0x2 << 2); break;
+			case 12 : res_config = (0x3 << 2); break;
+			default :
+				res = 12;
+				res_config = (0x3 << 2);
+				dev_err(&client->dev, "invalid 'micrel,resolution' property value: %d: using 12-bits\n", res);
+		}
+		data->resolution = res;
+		config |= res_config;
+	}
+
 	/*
 	 * Put MAX6680/MAX8881 into extended resolution (bit 0x10,
 	 * 0.125 degree resolution) and range (0x08, extend range
@@ -2641,6 +2677,8 @@ static int lm90_init_client(struct i2c_client *client, struct lm90_data *data)
 
 	config &= 0xBF;	/* run */
 	lm90_update_confreg(data, config);
+
+	dev_info(&client->dev, "Setting config to 0x%x\n", config);
 
 	return devm_add_action_or_reset(&client->dev, lm90_restore_conf, data);
 }

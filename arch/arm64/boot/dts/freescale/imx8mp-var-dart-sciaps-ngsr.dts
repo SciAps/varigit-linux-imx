@@ -670,6 +670,10 @@
 
 		fpga-nprogram-gpios = <&gpio4 17 GPIO_ACTIVE_LOW>;
 
+		fpga-tck-gpios = <&gpio4 06 GPIO_ACTIVE_HIGH>;
+		fpga-tms-gpios = <&gpio4 04 GPIO_ACTIVE_HIGH>;
+		fpga-tdi-gpios = <&gpio4 13 GPIO_ACTIVE_HIGH>;
+		fpga-tdo-gpios = <&gpio4 15 GPIO_ACTIVE_HIGH>;
 	};
 };
 
@@ -1163,6 +1167,10 @@
 
 	pinctrl_sciapsngsr: sciapsngsrgrp {
 		fsl,pins = <
+			MX8MP_IOMUXC_SAI1_RXD2__GPIO4_IO04				0x16  // SOM_TMS: Fast slew rate, drivestrength x6
+			MX8MP_IOMUXC_SAI1_RXD4__GPIO4_IO06				0x16  // SOM_TCK: Fast slew rate, drivestrength x6
+			MX8MP_IOMUXC_SAI1_TXD1__GPIO4_IO13				0x16  // SOM_TDI: Fast slew rate, drivestrength x6
+			MX8MP_IOMUXC_SAI1_TXD3__GPIO4_IO15				0x16  // SOM_TDO: Fast slew rate, drivestrength x6
 			MX8MP_IOMUXC_SAI1_TXD5__GPIO4_IO17				0x146  // SOM_nPROG: weak pullup enabled, drivestrength x6
 			MX8MP_IOMUXC_SAI1_RXD6__GPIO4_IO08				0x10   // SWIR1A_BUF_RDY: Fast slew rate, drivestrength x1
 			MX8MP_IOMUXC_SAI1_RXD7__GPIO4_IO09				0x10   // SWIR1B_BUF_RDY: Fast slew rate, drivestrength x1

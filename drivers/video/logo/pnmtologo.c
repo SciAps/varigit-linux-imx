@@ -27,17 +27,20 @@ static const char *logoname = "linux_logo";
 static const char *outputname;
 static FILE *out;
 
+static int persistent;
 
 #define LINUX_LOGO_MONO		1	/* monochrome black/white */
 #define LINUX_LOGO_VGA16	2	/* 16 colors VGA text palette */
 #define LINUX_LOGO_CLUT224	3	/* 224 colors */
 #define LINUX_LOGO_GRAY256	4	/* 256 levels grayscale */
+#define LINUX_LOGO_RGB888   5   /* 24-bit RGB true color */
 
-static const char *logo_types[LINUX_LOGO_GRAY256+1] = {
+static const char *logo_types[LINUX_LOGO_RGB888+1] = {
     [LINUX_LOGO_MONO] = "LINUX_LOGO_MONO",
     [LINUX_LOGO_VGA16] = "LINUX_LOGO_VGA16",
     [LINUX_LOGO_CLUT224] = "LINUX_LOGO_CLUT224",
-    [LINUX_LOGO_GRAY256] = "LINUX_LOGO_GRAY256"
+    [LINUX_LOGO_GRAY256] = "LINUX_LOGO_GRAY256",
+    [LINUX_LOGO_RGB888]  = "LINUX_LOGO_RGB888",
 };
 
 #define MAX_LINUX_LOGO_COLORS	224
@@ -244,14 +247,14 @@ static void write_header(void)
     fprintf(out, " *  Linux logo %s\n", logoname);
     fputs(" */\n\n", out);
     fputs("#include <linux/linux_logo.h>\n\n", out);
-    fprintf(out, "static unsigned char %s_data[] __initdata = {\n",
-	    logoname);
+    fprintf(out, "static unsigned char %s_data[]%s = {\n",
+	    logoname, persistent ? "" : " __initdata");
 }
 
 static void write_footer(void)
 {
     fputs("\n};\n\n", out);
-    fprintf(out, "const struct linux_logo %s __initconst = {\n", logoname);
+    fprintf(out, "const struct linux_logo %s%s = {\n", logoname, persistent ? "" : " __initconst");
     fprintf(out, "\t.type\t\t= %s,\n", logo_types[logo_type]);
     fprintf(out, "\t.width\t\t= %d,\n", logo_width);
     fprintf(out, "\t.height\t\t= %d,\n", logo_height);
@@ -381,8 +384,8 @@ static void write_logo_clut224(void)
     fputs("\n};\n\n", out);
 
     /* write logo clut */
-    fprintf(out, "static unsigned char %s_clut[] __initdata = {\n",
-	    logoname);
+    fprintf(out, "static unsigned char %s_clut[]%s = {\n",
+	    logoname, persistent ? "" : " __initdata");
     write_hex_cnt = 0;
     for (i = 0; i < logo_clutsize; i++) {
 	write_hex(logo_clut[i].red);
@@ -416,6 +419,24 @@ static void write_logo_gray256(void)
     write_footer();
 }
 
+static void write_logo_rgb888(void)
+{
+	int i, j;
+
+	write_header();
+
+	write_hex_cnt = 0;
+
+	for (i = 0; i < logo_height; i++)
+		for (j = 0; j < logo_width; j++) {
+			write_hex(logo_data[i][j].red);
+			write_hex(logo_data[i][j].green);
+			write_hex(logo_data[i][j].blue);
+		}
+
+	write_footer();
+}
+
 static void die(const char *fmt, ...)
 {
     va_list ap;
@@ -434,6 +455,7 @@ static void usage(void)
 	"\n"
 	"Valid options:\n"
 	"    -h          : display this usage information\n"
+	"    -p          : make the image persistent\n"
 	"    -n <name>   : specify logo name (default: linux_logo)\n"
 	"    -o <output> : output to file <output> instead of stdout\n"
 	"    -t <type>   : specify logo type, one of\n"
@@ -441,6 +463,7 @@ static void usage(void)
 	"                      vga16   : 16 colors VGA text palette\n"
 	"                      clut224 : 224 colors (default)\n"
 	"                      gray256 : 256 levels grayscale\n"
+	"                      rgb888  : 24-bit RGB true color\n"
 	"\n", programname);
 }
 
@@ -452,7 +475,7 @@ int main(int argc, char *argv[])
 
     opterr = 0;
     while (1) {
-	opt = getopt(argc, argv, "hn:o:t:");
+	opt = getopt(argc, argv, "hpn:o:t:");
 	if (opt == -1)
 	    break;
 
@@ -469,6 +492,10 @@ int main(int argc, char *argv[])
 		outputname = optarg;
 		break;
 
+	    case 'p':
+		persistent = 1;
+		break;
+
 	    case 't':
 		if (!strcmp(optarg, "mono"))
 		    logo_type = LINUX_LOGO_MONO;
@@ -478,6 +505,8 @@ int main(int argc, char *argv[])
 		    logo_type = LINUX_LOGO_CLUT224;
 		else if (!strcmp(optarg, "gray256"))
 		    logo_type = LINUX_LOGO_GRAY256;
+		else if (!strcmp(optarg, "rgb888"))
+		    logo_type = LINUX_LOGO_RGB888;
 		else
 		    usage();
 		break;
@@ -508,6 +537,10 @@ int main(int argc, char *argv[])
 
 	case LINUX_LOGO_GRAY256:
 	    write_logo_gray256();
+	    break;
+
+	case LINUX_LOGO_RGB888:
+	    write_logo_rgb888();
 	    break;
     }
     exit(0);

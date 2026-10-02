@@ -11,7 +11,9 @@
 	model = "SciAps NIR rev. 3 (version 0.1) based on Variscite DART-MX8M-PLUS";
 	chosen {
 		stdout-path = &uart1;
-		bootargs-append = "androidboot.primary_display=imx-drm androidboot.camera.layout=dual-ov5645 androidboot.sciaps.lcd_density=240 moal.mod_para=wifi_mod_para_iw612.conf"; // wifi_mod_para_iw612.conf wifi_mod_para_sd8987.conf
+		//console=ttymxc0,115200 earlycon=ec_imx6q,0x30860000,1/15200 androidboot.console=ttymxc0
+		bootargs-append = "androidboot.primary_display=imx-drm vt.global_cursor_default=0 androidboot.sciaps.bootlogo.size=hvga androidboot.camera.layout=dual-ov5645 androidboot.sciaps.lcd_density=240 moal.mod_para=wifi_mod_para_iw612.conf";
+		//wifi_mod_para_iw612.conf wifi_mod_para_sd8987.conf
 	};
 
 	gpio-keys {

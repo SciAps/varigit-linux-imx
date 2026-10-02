@@ -22,7 +22,7 @@
 #define LINUX_LOGO_VGA16	2	/* 16 colors VGA text palette */
 #define LINUX_LOGO_CLUT224	3	/* 224 colors */
 #define LINUX_LOGO_GRAY256	4	/* 256 levels grayscale */
-
+#define LINUX_LOGO_RGB888	5
 
 struct linux_logo {
 	int type;			/* one of LINUX_LOGO_* */
@@ -46,6 +46,8 @@ extern const struct linux_logo logo_superh_vga16;
 extern const struct linux_logo logo_superh_clut224;
 extern const struct linux_logo logo_spe_clut224;
 extern const struct linux_logo logo_variscite_clut224;
+extern const struct linux_logo logo_sciaps_hvga_rgb888;
+extern const struct linux_logo logo_sciaps_qvga_rgb888;
 
 extern const struct linux_logo *fb_find_logo(int depth);
 #ifdef CONFIG_FB_LOGO_EXTRA

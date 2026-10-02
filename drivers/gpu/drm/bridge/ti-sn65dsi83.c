@@ -141,12 +141,13 @@ struct sn65dsi83 {
 	struct drm_bridge		bridge;
 	struct device			*dev;
 	struct regmap			*regmap;
-	struct mipi_dsi_device		*dsi;
+	struct mipi_dsi_device	*dsi;
 	struct drm_bridge		*panel_bridge;
 	struct gpio_desc		*enable_gpio;
 	struct regulator		*vcc;
-	bool				lvds_dual_link;
-	bool				lvds_dual_link_even_odd_swap;
+	bool					lvds_dual_link;
+	bool					lvds_dual_link_even_odd_swap;
+	bool					bootloader_enabled;
 };
 
 static const struct regmap_range sn65dsi83_readable_ranges[] = {
@@ -671,12 +672,9 @@ static int sn65dsi83_probe(struct i2c_client *client,
 	}
 
 	/* Put the chip in reset, pull EN line low, and assure 10ms reset low timing. */
-	ctx->enable_gpio = devm_gpiod_get_optional(ctx->dev, "enable",
-						   GPIOD_OUT_LOW);
+	ctx->enable_gpio = devm_gpiod_get_optional(ctx->dev, "enable", GPIOD_ASIS);
 	if (IS_ERR(ctx->enable_gpio))
 		return dev_err_probe(dev, PTR_ERR(ctx->enable_gpio), "failed to get enable GPIO\n");
-
-	usleep_range(10000, 11000);
 
 	ret = sn65dsi83_parse_dt(ctx, model);
 	if (ret)
@@ -685,6 +683,31 @@ static int sn65dsi83_probe(struct i2c_client *client,
 	ctx->regmap = devm_regmap_init_i2c(client, &sn65dsi83_regmap_config);
 	if (IS_ERR(ctx->regmap))
 		return dev_err_probe(dev, PTR_ERR(ctx->regmap), "failed to get regmap\n");
+
+	ctx->bootloader_enabled = false;
+	if (ctx->enable_gpio) {
+		int gpio_state;
+		unsigned int pll_en;
+
+		gpio_state = gpiod_get_value_cansleep(ctx->enable_gpio);
+
+		if (gpio_state > 0 &&
+			!regmap_read(ctx->regmap, REG_RC_PLL_EN, &pll_en) &&
+			(pll_en & REG_RC_PLL_EN_PLL_EN)) {
+
+			ctx->bootloader_enabled = true;
+
+			dev_info(dev, "display already enabled by bootloader\n");
+		}
+
+		if (!ctx->bootloader_enabled) {
+			ret = gpiod_direction_output(ctx->enable_gpio, 0);
+			if (ret)
+				return dev_err_probe(dev, ret, "failed to reset bridge\n");
+
+			usleep_range(10000, 11000);
+		}
+	}
 
 	dev_set_drvdata(dev, ctx);
 	i2c_set_clientdata(client, ctx);

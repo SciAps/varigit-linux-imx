@@ -37,6 +37,24 @@ static int __init fb_logo_late_init(void)
 
 late_initcall_sync(fb_logo_late_init);
 
+enum sciaps_logo_size_t {
+	SCIAPS_LOGO_HVGA,
+	SCIAPS_LOGO_QVGA,
+};
+
+static enum sciaps_logo_size_t sciaps_logo_size = SCIAPS_LOGO_HVGA;
+
+static int __init sciaps_logo_size_setup(char *str)
+{
+	if (!strcmp(str, "qvga"))
+		sciaps_logo_size = SCIAPS_LOGO_QVGA;
+	else if (!strcmp(str, "hvga"))
+		sciaps_logo_size = SCIAPS_LOGO_HVGA;
+
+	return 1;
+}
+__setup("androidboot.sciaps.bootlogo.size=", sciaps_logo_size_setup);
+
 /* logo's are marked __initdata. Use __ref to tell
  * modpost that it is intended that this function uses data
  * marked __initdata.
@@ -45,7 +63,18 @@ const struct linux_logo * __ref fb_find_logo(int depth)
 {
 	const struct linux_logo *logo = NULL;
 
-	if (nologo || logos_freed)
+	if (nologo)
+		return NULL;
+
+#ifdef CONFIG_LOGO_SCIAPS_RGB888
+	if (depth >= 8) {
+		if (sciaps_logo_size == SCIAPS_LOGO_QVGA)
+			return &logo_sciaps_qvga_rgb888;
+		return &logo_sciaps_hvga_rgb888;
+	}
+#endif
+
+	if (logos_freed)
 		return NULL;
 
 	if (depth >= 1) {
@@ -58,7 +87,7 @@ const struct linux_logo * __ref fb_find_logo(int depth)
 		logo = &logo_superh_mono;
 #endif
 	}
-	
+
 	if (depth >= 4) {
 #ifdef CONFIG_LOGO_LINUX_VGA16
 		/* Generic Linux logo */
@@ -69,7 +98,7 @@ const struct linux_logo * __ref fb_find_logo(int depth)
 		logo = &logo_superh_vga16;
 #endif
 	}
-	
+
 	if (depth >= 8) {
 #ifdef CONFIG_LOGO_LINUX_CLUT224
 		/* Generic Linux logo */

@@ -454,6 +454,72 @@ static void fb_do_show_logo(struct fb_info *info, struct fb_image *image,
 	}
 }
 
+static int fb_show_logo_rgb888(struct fb_info *info, const struct linux_logo *logo, int y)
+{
+	const u8 *src = logo->data;
+	u8 __iomem *base = (u8 __iomem *)info->screen_base;
+	unsigned int dx, dy;
+	unsigned int x, row;
+
+	/*
+	 * For now we support the framebuffer format used by imx-drmdrmfb:
+	 *
+	 *   32 bpp
+	 *   R = 16/8
+	 *   G =  8/8
+	 *   B =  0/8
+	 */
+	if (info->var.bits_per_pixel != 32 ||
+			info->var.red.offset != 16 ||
+			info->var.red.length != 8 ||
+			info->var.green.offset != 8 ||
+			info->var.green.length != 8 ||
+			info->var.blue.offset != 0 ||
+			info->var.blue.length != 8) {
+		pr_err("RGB888 logo: unsupported framebuffer format\n");
+		return 0;
+	}
+
+	if (logo->width > info->var.xres ||
+			logo->height > info->var.yres) {
+		pr_err("RGB888 logo: logo %ux%u larger than fb %ux%u\n", logo->width, logo->height, info->var.xres, info->var.yres);
+		return 0;
+	}
+
+	if (fb_center_logo) {
+		dx = (info->var.xres - logo->width) / 2;
+		dy = y ?: (info->var.yres - logo->height) / 2;
+	}
+	else {
+		dx = 0;
+		dy = y;
+	}
+
+	for (row = 0; row < logo->height; row++) {
+		u8 __iomem *dst;
+
+		dst = base +
+				(dy + row) * info->fix.line_length +
+				dx * 4;
+
+		for (x = 0; x < logo->width; x++) {
+			u8 r = *src++;
+			u8 g = *src++;
+			u8 b = *src++;
+			u32 pixel;
+
+			pixel = ((u32)r << 16) |
+				((u32)g << 8) |
+				b;
+
+			writel(pixel, dst);
+			dst += 4;
+		}
+	}
+
+	return dy + logo->height;
+}
+
 static int fb_show_logo_line(struct fb_info *info, int rotate,
 			     const struct linux_logo *logo, int y,
 			     unsigned int n)
@@ -466,6 +532,16 @@ static int fb_show_logo_line(struct fb_info *info, int rotate,
 	if (logo == NULL || info->state != FBINFO_STATE_RUNNING ||
 	    info->fbops->owner)
 		return 0;
+
+#ifdef CONFIG_LOGO_SCIAPS_RGB888
+	if (logo->type == LINUX_LOGO_RGB888) {
+		if (rotate) {
+			pr_err("RGB888 logo: rotation not supported\n");
+			return 0;
+		}
+		return fb_show_logo_rgb888(info, logo, y);
+	}
+#endif
 
 	image.depth = 8;
 	image.data = logo->data;
@@ -654,7 +730,9 @@ int fb_prepare_logo(struct fb_info *info, int rotate)
 	}
 
 	/* What depth we asked for might be different from what we get */
-	if (fb_logo.logo->type == LINUX_LOGO_CLUT224)
+	if (fb_logo.logo->type == LINUX_LOGO_RGB888)
+		fb_logo.depth = 24;
+	else if (fb_logo.logo->type == LINUX_LOGO_CLUT224)
 		fb_logo.depth = 8;
 	else if (fb_logo.logo->type == LINUX_LOGO_VGA16)
 		fb_logo.depth = 4;
@@ -662,7 +740,7 @@ int fb_prepare_logo(struct fb_info *info, int rotate)
 		fb_logo.depth = 1;
 
 
-	if (fb_logo.depth > 4 && depth > 4) {
+	if (fb_logo.logo->type != LINUX_LOGO_RGB888 && fb_logo.depth > 4 && depth > 4) {
 		switch (info->fix.visual) {
 		case FB_VISUAL_TRUECOLOR:
 			fb_logo.needs_truepalette = 1;
@@ -692,7 +770,12 @@ int fb_show_logo(struct fb_info *info, int rotate)
 	if (!fb_logo_count)
 		return 0;
 
+#ifdef CONFIG_LOGO_SCIAPS_RGB888
+	count = 1;
+	fb_center_logo = true;
+#else
 	count = fb_logo_count < 0 ? num_online_cpus() : fb_logo_count;
+#endif
 	y = fb_show_logo_line(info, rotate, fb_logo.logo, 0, count);
 	y = fb_show_extra_logos(info, y, rotate);
 

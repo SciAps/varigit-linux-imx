@@ -46,14 +46,16 @@ static enum sciaps_logo_size_t sciaps_logo_size = SCIAPS_LOGO_HVGA;
 
 static int __init sciaps_logo_size_setup(char *str)
 {
-	if (!strcmp(str, "qvga"))
+	if (!strcmp(str, "240x320"))
 		sciaps_logo_size = SCIAPS_LOGO_QVGA;
-	else if (!strcmp(str, "hvga"))
+	else if (!strcmp(str, "480x640"))
+		sciaps_logo_size = SCIAPS_LOGO_HVGA;
+	else if (!strcmp(str, "1024x600"))
 		sciaps_logo_size = SCIAPS_LOGO_HVGA;
 
 	return 1;
 }
-__setup("androidboot.sciaps.bootlogo.size=", sciaps_logo_size_setup);
+__setup("androidboot.sciaps.screen.resolution=", sciaps_logo_size_setup);
 
 /* logo's are marked __initdata. Use __ref to tell
  * modpost that it is intended that this function uses data

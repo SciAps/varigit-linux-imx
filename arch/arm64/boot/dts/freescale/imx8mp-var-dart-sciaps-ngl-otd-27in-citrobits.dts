@@ -12,7 +12,7 @@
 	chosen {
 		stdout-path = &uart1;
 		//console=ttymxc0,115200 earlycon=ec_imx6q,0x30860000,1/15200 androidboot.console=ttymxc0
-		bootargs-append = "androidboot.primary_display=imx-drm vt.global_cursor_default=0 androidboot.sciaps.bootlogo.size=qvga androidboot.camera.layout=dual-ov5645-ngl androidboot.sciaps.lcd_density=120 moal.mod_para=wifi_mod_para_iw612.conf";
+		bootargs-append = "androidboot.primary_display=imx-drm vt.global_cursor_default=0 androidboot.sciaps.screen.resolution=240x320 androidboot.camera.layout=dual-ov5645-ngl androidboot.sciaps.lcd_density=120 moal.mod_para=wifi_mod_para_iw612.conf";
 		//wifi_mod_para_iw612.conf wifi_mod_para_sd8987.conf
 	};
 };

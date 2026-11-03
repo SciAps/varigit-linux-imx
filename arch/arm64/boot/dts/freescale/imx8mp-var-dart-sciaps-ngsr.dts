@@ -1139,18 +1139,6 @@
 		>;
 	};
 
-	pinctrl_gpio_keys: keysgrp {
-		fsl,pins = <
-			MX8MP_IOMUXC_ENET_TD1__GPIO1_IO20				0x146 // ONOFF Button: weak pullup enabled, drivestrength x6
-		>;
-	};
-
-	pinctrl_battery: batterygrp {
-		fsl,pins = <
-			MX8MP_IOMUXC_GPIO1_IO00__GPIO1_IO00				0x1c6
-		>;
-	};
-
 	pinctrl_rtc: rtcgrp {
 		fsl,pins = <
 			MX8MP_IOMUXC_SPDIF_RX__GPIO5_IO04				0x1c0

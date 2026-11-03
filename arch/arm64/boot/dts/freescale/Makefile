@@ -201,6 +201,15 @@ imx8mp-var-dart-1.x-sciaps-ngl-otd-35in-dtbs := imx8mp-var-dart-sciaps-ngl-otd-3
 imx8mp-var-dart-1.x-sciaps-ngl-otd-27in-citrobits-dtbs := imx8mp-var-dart-sciaps-ngl-otd-27in-citrobits.dtb imx8mp-var-dart-1.x.dtbo
 imx8mp-var-dart-1.x-sciaps-ngsr-dtbs := imx8mp-var-dart-sciaps-ngsr.dtb imx8mp-var-dart-1.x.dtbo
 
+imx8mp-var-dart-sciaps-nir-no-wireless-dtbs := imx8mp-var-dart-sciaps-nir.dtb imx8mp-var-dart-sciaps-no-wireless.dtbo
+imx8mp-var-dart-sciaps-ngx-otd-35in-no-wireless-dtbs := imx8mp-var-dart-sciaps-ngx-otd-35in.dtb imx8mp-var-dart-sciaps-no-wireless.dtbo
+imx8mp-var-dart-sciaps-ngx-otd-27in-citrobits-no-wireless-dtbs := imx8mp-var-dart-sciaps-ngx-otd-27in-citrobits.dtb imx8mp-var-dart-sciaps-no-wireless.dtbo
+imx8mp-var-dart-sciaps-btx-px40-no-wireless-dtbs := imx8mp-var-dart-sciaps-btx-px40.dtb imx8mp-var-dart-sciaps-no-wireless.dtbo
+imx8mp-var-dart-sciaps-btx-px40pm-no-wireless-dtbs := imx8mp-var-dart-sciaps-btx-px40pm.dtb imx8mp-var-dart-sciaps-no-wireless.dtbo
+imx8mp-var-dart-sciaps-btx-px80-no-wireless-dtbs := imx8mp-var-dart-sciaps-btx-px80.dtb imx8mp-var-dart-sciaps-no-wireless.dtbo
+imx8mp-var-dart-sciaps-ngl-otd-35in-no-wireless-dtbs := imx8mp-var-dart-sciaps-ngl-otd-35in.dtb imx8mp-var-dart-sciaps-no-wireless.dtbo
+imx8mp-var-dart-sciaps-ngl-otd-27in-citrobits-no-wireless-dtbs := imx8mp-var-dart-sciaps-ngl-otd-27in-citrobits.dtb imx8mp-var-dart-sciaps-no-wireless.dtbo
+
 dtb-$(CONFIG_ARCH_MXC) += imx8mp-var-dart-1.x-sciaps-nir.dtb
 dtb-$(CONFIG_ARCH_MXC) += imx8mp-var-dart-1.x-sciaps-ngx-otd-35in.dtb
 dtb-$(CONFIG_ARCH_MXC) += imx8mp-var-dart-1.x-sciaps-ngx-otd-27in-citrobits.dtb
@@ -210,6 +219,15 @@ dtb-$(CONFIG_ARCH_MXC) += imx8mp-var-dart-1.x-sciaps-btx-px80.dtb
 dtb-$(CONFIG_ARCH_MXC) += imx8mp-var-dart-1.x-sciaps-ngl-otd-35in.dtb
 dtb-$(CONFIG_ARCH_MXC) += imx8mp-var-dart-1.x-sciaps-ngl-otd-27in-citrobits.dtb
 dtb-$(CONFIG_ARCH_MXC) += imx8mp-var-dart-1.x-sciaps-ngsr.dtb
+
+dtb-$(CONFIG_ARCH_MXC) += imx8mp-var-dart-sciaps-nir-no-wireless.dtb
+dtb-$(CONFIG_ARCH_MXC) += imx8mp-var-dart-sciaps-ngx-otd-35in-no-wireless.dtb
+dtb-$(CONFIG_ARCH_MXC) += imx8mp-var-dart-sciaps-ngx-otd-27in-citrobits-no-wireless.dtb
+dtb-$(CONFIG_ARCH_MXC) += imx8mp-var-dart-sciaps-btx-px40-no-wireless.dtb
+dtb-$(CONFIG_ARCH_MXC) += imx8mp-var-dart-sciaps-btx-px40pm-no-wireless.dtb
+dtb-$(CONFIG_ARCH_MXC) += imx8mp-var-dart-sciaps-btx-px80-no-wireless.dtb
+dtb-$(CONFIG_ARCH_MXC) += imx8mp-var-dart-sciaps-ngl-otd-35in-no-wireless.dtb
+dtb-$(CONFIG_ARCH_MXC) += imx8mp-var-dart-sciaps-ngl-otd-27in-citrobits-no-wireless.dtb
 
 dtb-$(CONFIG_ARCH_MXC) += imx8mp-var-som-symphony.dtb
 dtb-$(CONFIG_ARCH_MXC) += imx8mp-var-som-symphony-2nd-ov5640-m7.dtb

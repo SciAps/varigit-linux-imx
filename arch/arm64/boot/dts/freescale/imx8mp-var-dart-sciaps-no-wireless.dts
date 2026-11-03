@@ -1,0 +1,61 @@
+// SPDX-License-Identifier: (GPL-2.0+ OR MIT)
+/*
+ * Device tree overlay to support the DART-MX8M-PLUS 1.x
+ *
+ * Copyright 2024 Variscite Ltd.
+ */
+
+/dts-v1/;
+/plugin/;
+
+#include <dt-bindings/gpio/gpio.h>
+#include "imx8mp-pinfunc.h"
+
+/ {
+    fragment@10 {
+        target-path = "/chosen";
+
+        __overlay__ {
+            sciaps,wireless-disabled;
+        };
+    };
+};
+
+&iomuxc {
+    pinctrl_wifi_disabled: wifi-disabled-grp {
+        fsl,pins = <
+			MX8MP_IOMUXC_SD1_DATA5__GPIO2_IO07 0x100
+			MX8MP_IOMUXC_SD1_DATA6__GPIO2_IO08 0x100
+        >;
+    };
+};
+
+&gpio2 {
+    wifi_disable_0 {
+        gpio-hog;
+        gpios = <7 GPIO_ACTIVE_HIGH>;
+        output-low;
+        line-name = "wifi-disable-sd1-d5";
+    };
+
+    wifi_disable_1 {
+        gpio-hog;
+        gpios = <8 GPIO_ACTIVE_HIGH>;
+        output-low;
+        line-name = "wifi-disable-sd1-d6";
+    };
+};
+
+/* Disable Wi-Fi */
+&usdhc1 {
+	status = "disabled";
+};
+
+/* Disable Bluetooth */
+&bluetooth_iw61x {
+	status = "disabled";
+};
+
+&uart4 {
+	status = "disabled";
+};
